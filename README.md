@@ -5,9 +5,9 @@ A simple desk thing that I made for my desk.
 ## Features
 
 - [x] Display the current time
-- [] Display the current weather
-- [] Control the brightness of a Philips Wiz lightbulb
-- [] Timer
+- [ ] Display the current weather
+- [ ] Control the brightness of a Philips Wiz lightbulb
+- [ ] Timer
 
 
 ## Hardware
