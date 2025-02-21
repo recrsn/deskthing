@@ -6,9 +6,10 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include <unistd.h>
+#if defined(ARDUINO) && defined(ESP_PLATFORM)
 #include <esp_system.h>
+#endif
 
 void generatePassword(char *password, int length);
 
-#endif //UTIL_H
+#endif  // UTIL_H

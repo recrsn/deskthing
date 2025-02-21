@@ -4,11 +4,15 @@
 #include <M5Unified.h>
 #include <apps/ClockApp.h>
 #include <util.h>
+#include <apps/Launcher.h>
+#include <apps/Timer.h>
 
 #if defined(ARDUINO) && defined(ESP_PLATFORM)
 #include <M5Dial.h>
 #include <WiFiManager.h>
 #endif
+
+LV_FONT_DECLARE(fontawesome)
 
 M5GFX gfx;
 ScreenManager* manager;
@@ -53,21 +57,25 @@ void setup() {
         delay(3000);
         ESP.restart();
     }
-#endif
 
     // set time from NTP
     configTime(0, 0, "pool.ntp.org", "time.google.com", "time.windows.com");
 
+    // set timezone, currently hardcoded to IST
     setenv("TZ", "IST-5:30", true);
     tzset();
+#endif
+
+    // set time from NTP
 
     lvgl_port_init(gfx);
 
-    manager = new ScreenManager({
-        {"clock", new ClockApp(manager)}
-    });
+    manager = new ScreenManager();
+    manager->addScreen("launcher", new Launcher(manager));
+    manager->addScreen("clock", new ClockApp(manager));
+    manager->addScreen("timer", new Timer(manager));
 
-    manager->setScreen("clock");
+    manager->setScreen("launcher");
 }
 
 void loop() {

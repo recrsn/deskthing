@@ -7,20 +7,18 @@
 
 #include <map>
 #include <string>
-#include "apps/App.h"
 
-
+class App;
 class ScreenManager {
-public:
-    ScreenManager(std::map<std::string, App*> screens);
+   public:
+    void addScreen(const std::string& name, App* screen);
     void init();
     void update();
-    void setScreen(std::string screenName);
-private:
-    std::map<std::string, App*> screens;
-    App* currentScreen;
+    void setScreen(const std::string& screenName);
+
+   private:
+    std::map<std::string, App*> screens = {};
+    App* currentScreen                  = nullptr;
 };
 
-
-
-#endif //SCREENMANAGER_H
+#endif  // SCREENMANAGER_H
