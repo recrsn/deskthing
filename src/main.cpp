@@ -1,9 +1,10 @@
+#include <lvgl.h>
 #include <unistd.h>
 #include "lvgl_port_m5stack.hpp"
 #include "ScreenManager.h"
 #include <M5Unified.h>
-#include <apps/ClockApp.h>
 #include <util.h>
+#include <apps/ClockApp.h>
 #include <apps/Launcher.h>
 #include <apps/Timer.h>
 
@@ -65,17 +66,26 @@ void setup() {
     setenv("TZ", "IST-5:30", true);
     tzset();
 #endif
+    static lv_display_t* display = lvgl_port_init(gfx);
 
-    // set time from NTP
+    if (display == nullptr) {
+        LV_LOG_ERROR("Could not initialize display");
+        M5.Display.fillScreen(TFT_RED);
+        M5.Display.setColor(255, 255, 255);
+        M5.Display.drawString("Could not initialize display", 0, 100);
+        return;
+    }
 
-    lvgl_port_init(gfx);
+    // app = new ClockApp(nullptr);
+    // app->init();
 
     manager = new ScreenManager();
     manager->addScreen("launcher", new Launcher(manager));
     manager->addScreen("clock", new ClockApp(manager));
     manager->addScreen("timer", new Timer(manager));
 
-    manager->setScreen("launcher");
+    manager->setHomeScreen("launcher");
+    manager->home();
 }
 
 void loop() {

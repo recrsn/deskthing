@@ -6,31 +6,41 @@
 #include "ClockApp.h"
 
 ClockApp::ClockApp(ScreenManager *manager) : App(manager) {
+}
+
+void ClockApp::buildGui() {
     clockScreen = lv_obj_create(nullptr);
-    lv_obj_set_style_bg_color(clockScreen, lv_color_hex(0x000000), 0);
 
     // Time label
     timeLabel = lv_label_create(clockScreen);
     lv_obj_set_style_text_font(timeLabel, &lv_font_montserrat_40, 0);
-    lv_obj_set_style_text_color(timeLabel, lv_color_hex(0xF0F0F0), 0);
     lv_obj_align(timeLabel, LV_ALIGN_TOP_MID, 0, 40);
 
     // Date label
     dateLabel = lv_label_create(clockScreen);
     lv_obj_set_style_text_font(dateLabel, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(dateLabel, lv_color_hex(0xF0F0F0), 0);
     lv_obj_align(dateLabel, LV_ALIGN_CENTER, 0, 0);
 
     // WiFi icon
     wifiIcon = lv_label_create(clockScreen);
     lv_label_set_text(wifiIcon, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_color(wifiIcon, lv_color_hex(0x00FF00), 0);
     lv_obj_align(wifiIcon, LV_ALIGN_BOTTOM_MID, 0, -40);
-    //        update();
+
+    // Go to home screen on back / esc button press
+    lv_obj_add_event_cb(
+        clockScreen,
+        [](lv_event_t *event) {
+            if (lv_event_get_key(event) == LV_KEY_ESC) {
+                auto manager = static_cast<ScreenManager *>(lv_event_get_user_data(event));
+                manager->home();
+            }
+        },
+        LV_EVENT_KEY, manager);
 }
 
 void ClockApp::init() {
     if (lvgl_port_lock()) {
+        buildGui();
         lv_scr_load(clockScreen);
         lvgl_port_unlock();
     }

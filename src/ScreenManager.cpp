@@ -12,14 +12,22 @@ void ScreenManager::addScreen(const std::string& name, App* screen) {
     screens[name] = screen;
 }
 
-void ScreenManager::update() {
+void ScreenManager::setHomeScreen(const std::string& screenName) {
+    homeScreen = screenName;
+}
+
+void ScreenManager::update() const {
     if (currentScreen != nullptr) {
         currentScreen->update();
     }
 }
 
+void ScreenManager::home() {
+    setScreen(homeScreen);
+}
+
 void ScreenManager::setScreen(const std::string& screenName) {
-    if (!screens.contains(screenName)) {
+    if (screens.find(screenName) == screens.end()) {
         printf("Screen not found %s\n", screenName.c_str());
         return;
     }

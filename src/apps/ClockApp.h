@@ -16,12 +16,12 @@ class ClockApp : public App {
     ~ClockApp() override;
 
    private:
-    lv_obj_t *clockScreen;
-    lv_obj_t *timeLabel;
-    lv_obj_t *dateLabel;
-    lv_obj_t *wifiIcon;
+    lv_obj_t *clockScreen = nullptr;
+    lv_obj_t *timeLabel = nullptr;
+    lv_obj_t *dateLabel = nullptr;
+    lv_obj_t *wifiIcon = nullptr;
 
-    void createClockScreen();
+    void buildGui();
 };
 
 #endif  // CLOCKAPP_H

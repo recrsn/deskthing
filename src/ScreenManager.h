@@ -12,13 +12,15 @@ class App;
 class ScreenManager {
    public:
     void addScreen(const std::string& name, App* screen);
-    void init();
-    void update();
+    void setHomeScreen(const std::string& screenName);
+    void update() const;
+    void home();
     void setScreen(const std::string& screenName);
 
    private:
     std::map<std::string, App*> screens = {};
     App* currentScreen                  = nullptr;
+    std::string homeScreen;
 };
 
 #endif  // SCREENMANAGER_H

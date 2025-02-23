@@ -8,17 +8,15 @@
 #include <lvgl.h>
 #include "App.h"
 
-
-class Launcher: public App {
-public:
+class Launcher : public App {
+   public:
     explicit Launcher(ScreenManager *manager);
     void init() override;
     ~Launcher() override;
 
-private:
-    lv_obj_t *launcherScreen;
+   private:
+    lv_obj_t *launcherScreen = nullptr;
+    void buildGui();
 };
 
-
-
-#endif //LAUNCHER_H
+#endif  // LAUNCHER_H

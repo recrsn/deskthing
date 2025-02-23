@@ -10,10 +10,14 @@
 #define LV_SYMBOL_CLOCK "\xEF\x80\x81"
 
 Launcher::Launcher(ScreenManager *manager) : App(manager) {
+}
+
+void Launcher::buildGui() {
     launcherScreen = lv_obj_create(nullptr);
-    lv_obj_set_style_bg_color(launcherScreen, lv_color_hex(0x000000), 0);
 
     lv_obj_t *appList = lv_list_create(launcherScreen);
+    lv_obj_set_style_border_width(appList, 0, 0); // Remove borders
+    lv_obj_set_size(appList, 168, 168);
     lv_obj_center(appList);
 
     /*Add buttons to the list*/
@@ -29,6 +33,7 @@ Launcher::Launcher(ScreenManager *manager) : App(manager) {
 
     lv_obj_t *btn;
     btn = lv_list_add_button(appList, LV_SYMBOL_IMAGE, "Clock");
+    lv_obj_set_height(btn, 50);
     lv_obj_add_event_cb(
         btn,
         [](lv_event_t *event) {
@@ -38,6 +43,7 @@ Launcher::Launcher(ScreenManager *manager) : App(manager) {
         LV_EVENT_CLICKED, manager);
 
     btn = lv_list_add_button(appList, LV_SYMBOL_IMAGE, "Weather");
+    lv_obj_set_height(btn, 50);
     lv_obj_add_event_cb(
         btn,
         [](lv_event_t *event) {
@@ -47,6 +53,7 @@ Launcher::Launcher(ScreenManager *manager) : App(manager) {
         LV_EVENT_CLICKED, manager);
 
     btn = lv_list_add_button(appList, LV_SYMBOL_IMAGE, "Timer");
+    lv_obj_set_height(btn, 50);
     lv_obj_add_event_cb(
         btn,
         [](lv_event_t *event) {
@@ -56,6 +63,7 @@ Launcher::Launcher(ScreenManager *manager) : App(manager) {
         LV_EVENT_CLICKED, manager);
 
     btn = lv_list_add_button(appList, LV_SYMBOL_IMAGE, "Stopwatch");
+    lv_obj_set_height(btn, 50);
     lv_obj_add_event_cb(
         btn,
         [](lv_event_t *event) {
@@ -65,6 +73,7 @@ Launcher::Launcher(ScreenManager *manager) : App(manager) {
         LV_EVENT_CLICKED, manager);
 
     btn = lv_list_add_button(appList, LV_SYMBOL_IMAGE, "Radio");
+    lv_obj_set_height(btn, 50);
     lv_obj_add_event_cb(
         btn,
         [](lv_event_t *event) {
@@ -74,6 +83,7 @@ Launcher::Launcher(ScreenManager *manager) : App(manager) {
         LV_EVENT_CLICKED, manager);
 
     btn = lv_list_add_button(appList, LV_SYMBOL_IMAGE, "Light");
+    lv_obj_set_height(btn, 50);
     lv_obj_add_event_cb(
         btn,
         [](lv_event_t *event) {
@@ -82,8 +92,8 @@ Launcher::Launcher(ScreenManager *manager) : App(manager) {
         },
         LV_EVENT_CLICKED, manager);
 
-
     btn = lv_list_add_button(appList, LV_SYMBOL_IMAGE, "Settings");
+    lv_obj_set_height(btn, 50);
     lv_obj_add_event_cb(
         btn,
         [](lv_event_t *event) {
@@ -95,6 +105,7 @@ Launcher::Launcher(ScreenManager *manager) : App(manager) {
 
 void Launcher::init() {
     if (lvgl_port_lock()) {
+        buildGui();
         lv_scr_load(launcherScreen);
         lvgl_port_unlock();
     }

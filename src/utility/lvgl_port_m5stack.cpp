@@ -163,37 +163,37 @@ static void lvgl_read_encoder_cb(lv_indev_t *indev, lv_indev_data_t *data) {
     static int32_t oldPosition = 0;
 
     int32_t newPosition = M5Dial.Encoder.read();
-    data->enc_diff = newPosition - oldPosition;
-    oldPosition = newPosition;
-    data->state = M5.BtnA.isPressed() ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+    data->enc_diff      = newPosition - oldPosition;
+    oldPosition         = newPosition;
+    data->state         = M5.BtnA.isPressed() ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
 #elif !defined(ARDUINO) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
-    // Implement up and down arrows for encoder
-    static int32_t oldPosition = 0;
-    int32_t newPosition = 0;
-
-    if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_UP]) {
-        newPosition = oldPosition + 1;
-    } else if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_DOWN]) {
-        newPosition = oldPosition - 1;
+    // Implement left and right arrows for encoder
+    if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_RIGHT]) {
+        data->key      = LV_KEY_RIGHT;
+        data->enc_diff = 1;
+    } else if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_LEFT]) {
+        data->key      = LV_KEY_LEFT;
+        data->enc_diff = -1;
+    } else {
+        data->enc_diff = 0;
     }
 
-
-    data->enc_diff = newPosition - oldPosition;
-    oldPosition = newPosition;
+    data->state = SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_RETURN] ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
 #endif
 }
 
-void lvgl_port_init(M5GFX &gfx) {
+lv_display_t *lvgl_port_init(M5GFX &gfx) {
     lv_init();
 
     static lv_display_t *disp = lv_display_create(gfx.width(), gfx.height());
-    if (disp == NULL) {
+    if (disp == nullptr) {
         LV_LOG_ERROR("lv_display_create failed");
-        return;
+        return nullptr;
     }
 
     lv_display_set_driver_data(disp, &gfx);
     lv_display_set_flush_cb(disp, lvgl_flush_cb);
+
 #if defined(ARDUINO) && defined(ESP_PLATFORM)
 #if defined(BOARD_HAS_PSRAM)
     static uint8_t *buf1 = (uint8_t *)heap_caps_malloc(gfx.width() * LV_BUFFER_LINE, MALLOC_CAP_SPIRAM);
@@ -201,8 +201,8 @@ void lvgl_port_init(M5GFX &gfx) {
     lv_display_set_buffers(disp, (void *)buf1, (void *)buf2, gfx.width() * LV_BUFFER_LINE,
                            LV_DISPLAY_RENDER_MODE_PARTIAL);
 #else
-    static uint8_t *buf1 = (uint8_t *)malloc(gfx.width() * LV_BUFFER_LINE);
-    lv_display_set_buffers(disp, (void *)buf1, NULL, gfx.width() * LV_BUFFER_LINE, LV_DISPLAY_RENDER_MODE_PARTIAL);
+    static auto *buf1 = static_cast<uint8_t *>(malloc(gfx.width() * LV_BUFFER_LINE));
+    lv_display_set_buffers(disp, buf1, nullptr, gfx.width() * LV_BUFFER_LINE, LV_DISPLAY_RENDER_MODE_PARTIAL);
 #endif
 #elif !defined(ARDUINO) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
     static uint8_t *buf1 = (uint8_t *)malloc(gfx.width() * LV_BUFFER_LINE * 2);
@@ -215,7 +215,7 @@ void lvgl_port_init(M5GFX &gfx) {
     LV_ASSERT_MALLOC(indev);
     if (indev == nullptr) {
         LV_LOG_ERROR("lv_indev_create failed");
-        return;
+        return nullptr;
     }
     lv_indev_set_driver_data(indev, &gfx);
     lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
@@ -226,7 +226,7 @@ void lvgl_port_init(M5GFX &gfx) {
     LV_ASSERT_MALLOC(indev_encoder);
     if (indev_encoder == nullptr) {
         LV_LOG_ERROR("lv_indev_create failed");
-        return;
+        return nullptr;
     }
     lv_indev_set_type(indev_encoder, LV_INDEV_TYPE_ENCODER);
     lv_indev_set_read_cb(indev_encoder, lvgl_read_encoder_cb);
@@ -244,6 +244,8 @@ void lvgl_port_init(M5GFX &gfx) {
     SDL_AddTimer(10, lvgl_tick_timer, NULL);
     SDL_CreateThread(lvgl_sdl_thread, "lvgl_sdl_thread", NULL);
 #endif
+
+    return disp;
 }
 #endif
 
