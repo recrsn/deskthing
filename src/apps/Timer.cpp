@@ -3,14 +3,15 @@
 //
 
 // Timer.cpp
-#include "Timer.h"
+
+#include "Timer.hpp"
+
 #include <lvgl.h>
-#include <lvgl_port_m5stack.hpp>
-#include <cstdio>
-#include "util.h"
 
 #include <M5Unified.hpp>
-#include <unistd.h>
+#include <cstdio>
+
+#include "lvgl_port_m5stack.hpp"
 
 #if defined(ARDUINO) && defined(ESP_PLATFORM)
 #include <M5Dial.h>
@@ -18,20 +19,16 @@
 #define delay(x) (usleep(x * 1000))
 #endif
 
-#define TIMER_MAX 99 * 3600 + 59 * 60 + 59
+#define TIMER_MAX (99 * 3600 + 59 * 60 + 59)
 
-Timer::Timer(ScreenManager *manager) : App(manager) {
-}
-
-void Timer::buildGui() {
-    scr = lv_obj_create(nullptr);
+void Timer::start(lv_obj_t *parent) {
     // lv_obj_add_event_cb(
     //     scr, [](lv_event_t *evt) { printf("Screen Event %d\n", lv_event_get_code(evt)); }, LV_EVENT_ALL, nullptr);
-    lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
 
     // Create a label for the timer
 
-    hoursLabel = lv_label_create(scr);
+    hoursLabel = lv_label_create(parent);
     lv_obj_add_flag(hoursLabel, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_flag(hoursLabel, LV_OBJ_FLAG_CLICK_FOCUSABLE);
     lv_label_set_text(hoursLabel, "00");
@@ -63,7 +60,7 @@ void Timer::buildGui() {
         },
         LV_EVENT_KEY, this);
 
-    minutesLabel = lv_label_create(scr);
+    minutesLabel = lv_label_create(parent);
     lv_obj_add_flag(minutesLabel, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_flag(minutesLabel, LV_OBJ_FLAG_CLICK_FOCUSABLE);
     lv_label_set_text(minutesLabel, ":00:");
@@ -92,7 +89,7 @@ void Timer::buildGui() {
         },
         LV_EVENT_ALL, this);
 
-    secondsLabel = lv_label_create(scr);
+    secondsLabel = lv_label_create(parent);
     lv_obj_add_flag(secondsLabel, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_flag(secondsLabel, LV_OBJ_FLAG_CLICK_FOCUSABLE);
     lv_label_set_text(secondsLabel, "00");
@@ -127,7 +124,7 @@ void Timer::buildGui() {
     lv_obj_align_to(secondsLabel, minutesLabel, LV_ALIGN_OUT_RIGHT_MID, 0, 0);
 
     // Create a start/stop button
-    btnStartStop = lv_btn_create(scr);
+    btnStartStop = lv_btn_create(parent);
     lv_obj_set_style_radius(btnStartStop, 0, 0);
     lv_obj_set_style_bg_color(btnStartStop, lv_color_hex(0x00CC22), 0);
     lv_obj_set_size(btnStartStop, LV_PCT(100), 50);
@@ -143,15 +140,15 @@ void Timer::buildGui() {
             auto app = static_cast<Timer *>(lv_event_get_user_data(event));
 
             if (app->timerRunning) {
-                app->stop();
+                app->stopTimer();
             } else {
-                app->start();
+                app->startTimer();
             }
         },
         LV_EVENT_CLICKED, this);
 
     // Create a reset button
-    btnReset = lv_btn_create(scr);
+    btnReset = lv_btn_create(parent);
     lv_obj_set_style_radius(btnReset, 0, 0);
     lv_obj_set_size(btnReset, LV_PCT(100), 50);
     lv_obj_align_to(btnReset, btnStartStop, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
@@ -169,7 +166,7 @@ void Timer::buildGui() {
     lv_obj_align(labelReset, LV_ALIGN_CENTER, 0, 0);
 
     // Create an LED
-    led = lv_led_create(scr);
+    led = lv_led_create(parent);
     lv_led_set_color(led, lv_color_hex(0xff0000));
     lv_obj_set_size(led, 8, 8);
     // do not show the LED by default
@@ -189,12 +186,12 @@ void Timer::buildGui() {
         lv_group_set_editing(group, true);
     });
 
-    lv_indev_set_group(findEncoder(), timerGroup);
+    lv_indev_set_group(dial->encoder, timerGroup);
 
     // Timer to update the display
     timer = lv_timer_create(
         [](lv_timer_t *timer) {
-            auto app = static_cast<Timer *>(lv_timer_get_user_data(timer));
+            const auto app = static_cast<Timer *>(lv_timer_get_user_data(timer));
             if (app->timerRunning) {
                 if (app->countdownTime > 0) {
                     app->countdownTime--;
@@ -242,7 +239,7 @@ void Timer::updateTimer() const {
     lv_label_set_text(secondsLabel, timeStr);
 }
 
-void Timer::start() {
+void Timer::startTimer() {
     if (countdownTime <= 0) {
         return;
     }
@@ -251,15 +248,13 @@ void Timer::start() {
     lv_label_set_text(labelStartStop, "Stop");
     lv_obj_set_style_bg_color(btnStartStop, lv_color_hex(0xCC0000), 0);
     lv_timer_resume(timer);
-    lvgl_port_unlock();
 }
 
-void Timer::stop() {
+void Timer::stopTimer() {
     lv_led_off(led);
     lv_timer_pause(timer);
     lv_label_set_text(labelStartStop, "Start");
     lv_obj_set_style_bg_color(btnStartStop, lv_color_hex(0x00CC22), 0);
-    lvgl_port_unlock();
     timerRunning = false;
 }
 
@@ -267,29 +262,18 @@ void Timer::reset() {
     countdownTime = 0;
     updateTimer();
     stop();
-    lvgl_port_unlock();
 }
 
-void Timer::init() {
-    if (lvgl_port_lock()) {
-        buildGui();
-        lv_scr_load(scr);
-        lvgl_port_unlock();
-    }
-}
-
-// void Timer::update() {
-//     if (lvgl_port_lock()) {
-//         updateTimer();
-//         lvgl_port_unlock();
-//     }
-// }
-
-Timer::~Timer() {
-    if (lvgl_port_lock()) {
-        lv_obj_del(scr);
-        lv_group_del(timerGroup);
-        lv_timer_del(timer);
-        lvgl_port_unlock();
-    }
+void Timer::stop() {
+    lv_group_delete(timerGroup);
+    lv_timer_delete(timer);
+    lv_timer_delete(toneTimer);
+    lv_obj_delete(hoursLabel);
+    lv_obj_delete(minutesLabel);
+    lv_obj_delete(secondsLabel);
+    lv_obj_delete(btnStartStop);
+    lv_obj_delete(labelStartStop);
+    lv_obj_delete(btnReset);
+    lv_obj_delete(labelReset);
+    lv_obj_delete(led);
 }

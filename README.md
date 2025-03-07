@@ -6,8 +6,9 @@ A simple desk thing that I made for my desk.
 
 - [x] Display the current time
 - [ ] Display the current weather
-- [ ] Control the brightness of a Philips Wiz lightbulb
-- [ ] Timer
+- [x] Control the brightness of a Philips Wiz lightbulb
+- [x] Timer
+- [ ] Settings menu to configure WiFi, timezones, etc.
 
 
 ## Hardware

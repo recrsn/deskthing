@@ -1,71 +1,186 @@
 //
 // Created by Amitosh Swain Mahapatra on 11/02/25.
 //
-#include "lvgl_port_m5stack.hpp"
-#include <ctime>
-#include "ClockApp.h"
+#include "ClockApp.hpp"
 
-ClockApp::ClockApp(ScreenManager *manager) : App(manager) {
+#include <lvgl.h>
+
+#ifdef ESP_PLATFORM
+#include <lwip/err.h>
+#include <lwip/netdb.h>
+#include <lwip/sockets.h>
+#else
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
+
+#include <ctime>
+
+#include "lvgl_port_m5stack.hpp"
+
+void ClockApp::setBrightnessCallback(void *data) {
+#ifdef BULB_IP
+    auto arc        = static_cast<lv_obj_t *>(data);
+    auto brightness = lv_arc_get_value(arc);
+
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0) {
+        return;
+    }
+
+    sockaddr_in servaddr = {};
+    servaddr.sin_family  = AF_INET;
+    servaddr.sin_port    = htons(38899);  // WiZ light UDP port
+    inet_aton(BULB_IP, &servaddr.sin_addr);
+
+    // Create JSON payload: {"method":"setPilot","params":{"dimming":brightness}}
+    char payload[100];
+    snprintf(payload, sizeof(payload), R"({"method":"setPilot","params":{"dimming":%d}})", brightness);
+
+    sendto(sockfd, payload, strlen(payload), 0, (sockaddr *)&servaddr, sizeof(servaddr));
+    close(sockfd);
+#endif
 }
 
-void ClockApp::buildGui() {
-    clockScreen = lv_obj_create(nullptr);
-
+void ClockApp::start(lv_obj_t *screen) {
+    lv_obj_set_style_bg_color(screen, lv_color_hex(0x000000), 0);
     // Time label
-    timeLabel = lv_label_create(clockScreen);
+    timeLabel = lv_label_create(screen);
     lv_obj_set_style_text_font(timeLabel, &lv_font_montserrat_40, 0);
     lv_obj_align(timeLabel, LV_ALIGN_TOP_MID, 0, 40);
 
     // Date label
-    dateLabel = lv_label_create(clockScreen);
+    dateLabel = lv_label_create(screen);
     lv_obj_set_style_text_font(dateLabel, &lv_font_montserrat_18, 0);
     lv_obj_align(dateLabel, LV_ALIGN_CENTER, 0, 0);
 
     // WiFi icon
-    wifiIcon = lv_label_create(clockScreen);
+    wifiIcon = lv_label_create(screen);
     lv_label_set_text(wifiIcon, LV_SYMBOL_WIFI);
+    lv_obj_add_flag(wifiIcon, LV_OBJ_FLAG_CLICK_FOCUSABLE);
+    lv_obj_set_style_text_color(wifiIcon, lv_color_hex(0x00FF00), 0);
     lv_obj_align(wifiIcon, LV_ALIGN_BOTTOM_MID, 0, -40);
 
-    // Go to home screen on back / esc button press
-    lv_obj_add_event_cb(
-        clockScreen,
-        [](lv_event_t *event) {
-            if (lv_event_get_key(event) == LV_KEY_ESC) {
-                auto manager = static_cast<ScreenManager *>(lv_event_get_user_data(event));
-                manager->home();
-            }
+    // brightness overlay
+    brightnessOverlay = lv_obj_create(screen);
+    lv_obj_remove_flag(brightnessOverlay, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(brightnessOverlay, LV_OBJ_FLAG_FLOATING);
+    lv_obj_add_flag(brightnessOverlay, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_size(brightnessOverlay, LV_PCT(100), LV_PCT(100));
+    lv_obj_center(brightnessOverlay);
+    lv_obj_set_style_bg_color(brightnessOverlay, lv_color_hex(0x000000), 0);
+
+    brightnessSlider = lv_arc_create(brightnessOverlay);
+    lv_obj_set_size(brightnessSlider, 200, 200);
+    lv_obj_center(brightnessSlider);
+    lv_arc_set_value(brightnessSlider, 50);
+    lv_obj_set_state(brightnessSlider, LV_STATE_FOCUSED, true);
+
+    brightnessLabel = lv_label_create(brightnessOverlay);
+    lv_obj_set_style_text_font(brightnessLabel, &lv_font_montserrat_40, 0);
+    lv_label_set_text(brightnessLabel, "50%");
+    lv_obj_center(brightnessLabel);
+
+    lv_obj_t *title = lv_label_create(brightnessOverlay);
+    lv_label_set_text(title, "Brightness");
+    lv_obj_align_to(title, brightnessLabel, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
+
+    group = lv_group_create();
+    lv_group_add_obj(group, brightnessSlider);
+    lv_group_focus_obj(brightnessSlider);
+    lv_group_set_editing(group, true);
+    lv_group_focus_freeze(group, true);
+    lv_indev_set_group(dial->encoder, group);
+
+    lv_obj_add_event_cb(brightnessSlider, onBrightnessChangedCallback, LV_EVENT_VALUE_CHANGED, this);
+
+    overlayTimer = lv_timer_create(
+        [](lv_timer_t *timer) {
+            const auto overlay = static_cast<lv_obj_t *>(lv_timer_get_user_data(timer));
+            lv_obj_add_flag(overlay, LV_OBJ_FLAG_HIDDEN);
         },
-        LV_EVENT_KEY, manager);
+        5000, brightnessOverlay);
+    lv_timer_set_auto_delete(overlayTimer, false);
+    lv_timer_pause(overlayTimer);
+
+    clockTimer = lv_timer_create(update, 1000, this);
+    lv_timer_ready(clockTimer);
 }
 
-void ClockApp::init() {
-    if (lvgl_port_lock()) {
-        buildGui();
-        lv_scr_load(clockScreen);
-        lvgl_port_unlock();
+void ClockApp::onBrightnessChangedCallback(lv_event_t *e) {
+    const auto app      = static_cast<ClockApp *>(lv_event_get_user_data(e));
+    const lv_obj_t *arc = lv_event_get_target_obj(e);
+    lv_label_set_text_fmt(app->brightnessLabel, "%" LV_PRId32 "%%", lv_arc_get_value(arc));
+
+    if (lv_obj_has_flag(app->brightnessOverlay, LV_OBJ_FLAG_HIDDEN)) {
+        lv_obj_clear_flag(app->brightnessOverlay, LV_OBJ_FLAG_HIDDEN);
     }
+    lv_timer_reset(app->overlayTimer);
+    lv_timer_resume(app->overlayTimer);
+
+    // Send brightness command to Wiz light
+    lv_async_call(setBrightnessCallback, (void*)arc);
 }
 
-void ClockApp::update() {
-    if (lvgl_port_lock()) {
-        const time_t now = time(nullptr);
-        const tm *t      = localtime(&now);
+void ClockApp::update(lv_timer_t *timer) {
+    const auto app   = static_cast<ClockApp *>(lv_timer_get_user_data(timer));
+    const time_t now = time(nullptr);
+    const tm *t      = localtime(&now);
 
-        static char timeStr[6];
-        strftime(timeStr, sizeof(timeStr), "%H:%M", t);
-        lv_label_set_text(timeLabel, timeStr);
+    static char timeStr[6];
+    strftime(timeStr, sizeof(timeStr), "%H:%M", t);
+    lv_label_set_text(app->timeLabel, timeStr);
 
-        static char dateStr[20];
-        strftime(dateStr, sizeof(dateStr), "%a, %d %b", t);
-        lv_label_set_text(dateLabel, dateStr);
+    static char dateStr[20];
+    strftime(dateStr, sizeof(dateStr), "%a, %d %b", t);
+    lv_label_set_text(app->dateLabel, dateStr);
 
-        lvgl_port_unlock();
+    // if (lv_obj_has_flag(brightnessOverlay, LV_OBJ_FLAG_HIDDEN)) {
+    //     lv_indev_data_t data;
+    //     auto indev_get_read_cb = lv_indev_get_read_cb(dial->encoder);
+    //     indev_get_read_cb(dial->encoder, &data);
+    //     if (data.enc_diff) {
+    //         lv_arc_set_value(brightnessSlider, lv_arc_get_value(brightnessSlider) + data.enc_diff);
+    //         lv_obj_send_event(brightnessSlider, LV_EVENT_VALUE_CHANGED, nullptr);
+    //         lv_obj_clear_flag(brightnessOverlay, LV_OBJ_FLAG_HIDDEN);
+    //         lv_timer_reset(timer);
+    //         lv_timer_resume(timer);
+    //     }
+    // }
+}
+
+void ClockApp::stop() {
+    if (timeLabel) {
+        lv_obj_del(timeLabel);
     }
-}
 
-ClockApp::~ClockApp() {
-    if (lvgl_port_lock()) {
-        lv_obj_del(clockScreen);
-        lvgl_port_unlock();
+    if (dateLabel) {
+        lv_obj_del(dateLabel);
+    }
+
+    if (wifiIcon) {
+        lv_obj_del(wifiIcon);
+    }
+
+    if (brightnessSlider) {
+        lv_obj_del(brightnessSlider);
+    }
+
+    if (brightnessLabel) {
+        lv_obj_del(brightnessLabel);
+    }
+
+    if (group) {
+        lv_group_del(group);
+    }
+
+    if (overlayTimer) {
+        lv_timer_del(overlayTimer);
+    }
+
+    if (brightnessOverlay) {
+        lv_obj_del(brightnessOverlay);
     }
 }
