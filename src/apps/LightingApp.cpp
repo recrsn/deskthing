@@ -13,8 +13,6 @@
 #include <lwip/sockets.h>
 #endif
 
-#include <util.h>
-
 #include "resources/cct_arc.h"
 #include "resources/fontawesome.h"
 #include "resources/hsv_circle.h"
@@ -26,27 +24,39 @@ LightingApp::LightingApp(lvgl_m5_dial_t* d) : App(d) {
     inet_aton(BULB_IP, &wiz_addr.sin_addr);
 }
 
-void LightingApp::start(lv_obj_t* screen) {
-    container = lv_obj_create(screen);
-    lv_obj_set_size(container, 240, 240);
-    lv_obj_set_style_bg_color(container, lv_color_hex(0x000000), 0);
-    lv_obj_clear_flag(container, LV_OBJ_FLAG_SCROLLABLE);
+void LightingApp::setBrightnessCallback(void* data) {
+    auto* self      = static_cast<LightingApp*>(data);
+    auto brightness = lv_arc_get_value(self->brightnessSlider);
 
-    arcCanvas = lv_image_create(container);
-    lv_image_set_src(arcCanvas, &hsv_circle);
+    // Create JSON payload: {"method":"setPilot","params":{"dimming":brightness}}
+    char payload[100];
+    snprintf(payload, sizeof(payload), R"({"method":"setPilot","params":{"dimming":%d}})", brightness);
+
+    sendto(self->udp_socket, payload, strlen(payload), 0, reinterpret_cast<sockaddr*>(&self->wiz_addr),
+           sizeof(self->wiz_addr));
+}
+
+void LightingApp::start(lv_obj_t* screen) {
+    color_screen = lv_obj_create(screen);
+    lv_obj_set_size(color_screen, 240, 240);
+    lv_obj_set_style_bg_color(color_screen, lv_color_hex(0x000000), 0);
+    lv_obj_clear_flag(color_screen, LV_OBJ_FLAG_SCROLLABLE);
+
+    arcCanvas = lv_image_create(color_screen);
+    // lv_image_set_src(arcCanvas, &hsv_circle);
     lv_obj_center(arcCanvas);
 
-    bulb_icon = lv_label_create(container);
+    bulb_icon = lv_label_create(color_screen);
     lv_label_set_text(bulb_icon, LV_SYMBOL_LIGHTBULB);
     lv_obj_set_style_text_font(bulb_icon, &fontawesome, 0);
     lv_obj_align(bulb_icon, LV_ALIGN_CENTER, 0, 0);
 
-    cct_label = lv_label_create(container);
+    cct_label = lv_label_create(color_screen);
     lv_label_set_text_fmt(cct_label, "%dK", current_cct);
     lv_obj_align_to(cct_label, bulb_icon, LV_ALIGN_TOP_MID, 0, -20);
     lv_obj_add_flag(cct_label, LV_OBJ_FLAG_HIDDEN);
 
-    arcSlider = lv_arc_create(container);
+    arcSlider = lv_arc_create(color_screen);
     lv_obj_set_size(arcSlider, 200, 200);
     lv_obj_center(arcSlider);
     lv_obj_add_event_cb(arcSlider, arc_event_cb, LV_EVENT_VALUE_CHANGED, this);
@@ -54,30 +64,83 @@ void LightingApp::start(lv_obj_t* screen) {
     lv_obj_set_style_arc_opa(arcSlider, LV_OPA_TRANSP, LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(arcSlider, lv_color_hex(0xFFFFFF), LV_PART_KNOB);
 
-    toggleBtn = lv_switch_create(container);
-    lv_obj_set_size(toggleBtn, 80, 40);
+    toggleBtn = lv_switch_create(color_screen);
+    lv_obj_set_size(toggleBtn, 40, 20);
     lv_obj_align_to(toggleBtn, bulb_icon, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
     lv_obj_add_event_cb(toggleBtn, toggle_mode, LV_EVENT_VALUE_CHANGED, this);
     lv_obj_set_state(toggleBtn, LV_STATE_CHECKED, true);
 
-    lv_obj_t* rgbLabel = lv_label_create(container);
+    lv_obj_t* rgbLabel = lv_label_create(color_screen);
     lv_label_set_text(rgbLabel, "RGB");
     lv_obj_set_style_text_font(rgbLabel, &lv_font_montserrat_12, 0);
     lv_obj_align_to(rgbLabel, toggleBtn, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
 
-    lv_obj_t* cctLabel = lv_label_create(container);
+    lv_obj_t* cctLabel = lv_label_create(color_screen);
     lv_label_set_text(cctLabel, "CCT");
     lv_obj_set_style_text_font(cctLabel, &lv_font_montserrat_12, 0);
     lv_obj_align_to(cctLabel, toggleBtn, LV_ALIGN_OUT_LEFT_MID, -5, 0);
 
+    // Create brightness screen
+    brightness_screen = lv_obj_create(screen);
+    lv_obj_remove_flag(brightness_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(brightness_screen, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_size(brightness_screen, LV_PCT(100), LV_PCT(100));
+    lv_obj_center(brightness_screen);
+    lv_obj_set_style_bg_color(brightness_screen, lv_color_hex(0x000000), 0);
+
+    brightnessSlider = lv_arc_create(brightness_screen);
+    lv_obj_set_size(brightnessSlider, 200, 200);
+    lv_obj_center(brightnessSlider);
+    lv_arc_set_value(brightnessSlider, 50);
+    lv_obj_set_state(brightnessSlider, LV_STATE_FOCUSED, true);
+
+    brightnessLabel = lv_label_create(brightness_screen);
+    lv_obj_set_style_text_font(brightnessLabel, &lv_font_montserrat_40, 0);
+    lv_label_set_text(brightnessLabel, "50%");
+    lv_obj_center(brightnessLabel);
+
+    lv_obj_t* title = lv_label_create(brightness_screen);
+    lv_label_set_text(title, "Brightness");
+    lv_obj_align_to(title, brightnessLabel, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
+
+    lv_obj_add_event_cb(brightnessSlider, onBrightnessChangedCallback, LV_EVENT_VALUE_CHANGED, this);
+
     group = lv_group_create();
-    lv_group_add_obj(group, arcSlider);
-    lv_group_focus_obj(arcSlider);
-    lv_group_set_editing(group, true);
-    lv_group_focus_freeze(group, true);
-    lv_indev_set_group(dial->encoder, group);
+    // lv_group_add_obj(group, arcSlider);
+    // lv_group_focus_obj(arcSlider);
+    // lv_group_set_editing(group, true);
+    // lv_group_focus_freeze(group, true);
+    // lv_indev_set_group(dial->encoder, group);
+    //
+    // // Create separate group for brightness controls
+    brightnessGroup = lv_group_create();
+    // lv_group_add_obj(brightnessGroup, brightnessSlider);
+    // lv_group_set_editing(brightnessGroup, true);
+    // lv_group_focus_freeze(brightnessGroup, true);
+
+    // lv_obj_add_event_cb(screen, screenSwipeCallback, LV_EVENT_GESTURE, this);
 
     update_display();
+}
+
+void LightingApp::screenSwipeCallback(lv_event_t* e) {
+    auto* self = static_cast<LightingApp*>(lv_event_get_user_data(e));
+    switch (lv_indev_get_gesture_dir(lv_indev_active())) {
+        case LV_DIR_LEFT:
+            lv_obj_clear_flag(self->brightness_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(self->color_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_indev_set_group(self->dial->encoder, self->brightnessGroup);
+            lv_group_focus_obj(self->brightnessSlider);
+            break;
+        case LV_DIR_RIGHT:
+            lv_obj_clear_flag(self->color_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(self->brightness_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_indev_set_group(self->dial->encoder, self->group);
+            lv_group_focus_obj(self->arcSlider);
+            break;
+        default:
+            LV_LOG("Unknown gesture");
+    }
 }
 
 void LightingApp::toggle_mode(lv_event_t* e) {
@@ -106,6 +169,8 @@ void LightingApp::update_display() const {
         lv_arc_set_angles(this->arcSlider, 0, 360);
         lv_arc_set_bg_angles(this->arcSlider, 0, 360);
         lv_arc_set_value(this->arcSlider, this->current_color);
+        lv_arc_set_start_angle(this->arcCanvas, 270);
+        lv_arc_set_end_angle(this->arcCanvas, 270);
     } else {
         lv_image_set_src(this->arcCanvas, &cct_arc);
         lv_obj_clear_flag(this->cct_label, LV_OBJ_FLAG_HIDDEN);
@@ -114,6 +179,8 @@ void LightingApp::update_display() const {
         lv_arc_set_angles(this->arcSlider, 135, 45);
         lv_arc_set_bg_angles(this->arcSlider, 135, 45);
         lv_arc_set_value(this->arcSlider, this->current_cct);
+        lv_arc_set_start_angle(this->arcCanvas, 135);
+        lv_arc_set_end_angle(this->arcCanvas, 45);
     }
 }
 
@@ -129,9 +196,33 @@ void LightingApp::send_udp_packet() {
     }
     sendto(udp_socket, buffer, len, 0, reinterpret_cast<sockaddr*>(&wiz_addr), sizeof(wiz_addr));
 }
+void LightingApp::onBrightnessChangedCallback(lv_event_t* e) {
+    const auto app      = static_cast<LightingApp*>(lv_event_get_user_data(e));
+    const lv_obj_t* arc = lv_event_get_target_obj(e);
+    lv_label_set_text_fmt(app->brightnessLabel, "%d%%", lv_arc_get_value(arc));
+
+    // Send brightness command to Wiz light
+    lv_async_call(setBrightnessCallback, app);
+}
+
 void LightingApp::update() {}
 
 void LightingApp::stop() {
-    lv_obj_del(container);
+    if (color_screen) {
+        lv_obj_del(color_screen);
+    }
+
+    if (brightness_screen) {
+        lv_obj_del(brightness_screen);
+    }
+
+    if (group) {
+        lv_group_del(group);
+    }
+
+    if (brightnessGroup) {
+        lv_group_del(brightnessGroup);
+    }
+
     close(udp_socket);
 }

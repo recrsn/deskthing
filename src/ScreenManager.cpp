@@ -70,13 +70,6 @@ void ScreenManager::launchApp(const std::string& appName) {
     currentApp = appRegistry[appName](dial);
     currentApp->start(newScreen);
 
-    lv_obj_t* backButton = lv_btn_create(screen);
-    lv_obj_align(backButton, LV_ALIGN_TOP_LEFT, 10, 10);
-    lv_obj_t* label = lv_label_create(backButton);
-    lv_label_set_text(label, "Back");
-    lv_obj_center(label);
-    lv_obj_add_event_cb(backButton, backButtonEventHandler, LV_EVENT_CLICKED, this);
-
     lv_scr_load(newScreen);
     lv_obj_del(screen);
     screen = newScreen;
