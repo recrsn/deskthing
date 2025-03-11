@@ -18,10 +18,6 @@
 #include "resources/hsv_circle.h"
 
 LightingApp::LightingApp(lvgl_m5_dial_t* d) : App(d) {
-    udp_socket          = socket(AF_INET, SOCK_DGRAM, 0);
-    wiz_addr.sin_family = AF_INET;
-    wiz_addr.sin_port   = htons(38899);
-    inet_aton(BULB_IP, &wiz_addr.sin_addr);
 }
 
 void LightingApp::start(lv_obj_t* screen) {
@@ -181,28 +177,19 @@ void LightingApp::update_display() const {
 
 void LightingApp::changeColor(void* data) {
     auto* self = static_cast<LightingApp*>(data);
-    char buffer[128];
-    int len;
     if (self->is_rgb_mode) {
         auto [blue, green, red] = lv_color_hsv_to_rgb(self->current_color, 100, 100);
-        len = snprintf(buffer, sizeof(buffer), R"({"method":"setPilot","params":{"r":%d,"g":%d,"b":%d}})", red, green,
-                       blue);
+        self->wizBulb.setColor(red, green, blue);
     } else {
-        len =
-            snprintf(buffer, sizeof(buffer), R"({"method":"setPilot","params":{"temp":%d}})", self->current_cct * 100);
+        self->wizBulb.setColorTemperature(self->current_cct * 100);
     }
-    sendto(self->udp_socket, buffer, len, 0, reinterpret_cast<sockaddr*>(&self->wiz_addr), sizeof(self->wiz_addr));
 }
 
 void LightingApp::setBrightness(void* data) {
-    auto* self      = static_cast<LightingApp*>(data);
+    auto* self = static_cast<LightingApp*>(data);
     auto brightness = lv_arc_get_value(self->brightnessSlider);
-
-    // Create JSON payload: {"method":"setPilot","params":{"dimming":brightness}}
-    char payload[100];
-    int len = snprintf(payload, sizeof(payload), R"({"method":"setPilot","params":{"dimming":%d}})", brightness);
-
-    sendto(self->udp_socket, payload, len, 0, reinterpret_cast<sockaddr*>(&self->wiz_addr), sizeof(self->wiz_addr));
+    
+    self->wizBulb.setBrightness(brightness);
 }
 
 void LightingApp::onBrightnessChangedCallback(lv_event_t* e) {
@@ -217,7 +204,6 @@ void LightingApp::onBrightnessChangedCallback(lv_event_t* e) {
 void LightingApp::update() {}
 
 void LightingApp::stop() {
-    close(udp_socket);
     if (group) {
         lv_group_del(group);
     }

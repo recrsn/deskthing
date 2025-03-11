@@ -21,27 +21,11 @@
 #include "lvgl_port_m5stack.hpp"
 
 void ClockApp::setBrightnessCallback(void *data) {
-#ifdef BULB_IP
-    auto arc        = static_cast<lv_obj_t *>(data);
+    auto arc = static_cast<lv_obj_t *>(data);
+    auto app = static_cast<ClockApp *>(lv_obj_get_user_data(arc));
     auto brightness = lv_arc_get_value(arc);
-
-    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0) {
-        return;
-    }
-
-    sockaddr_in servaddr = {};
-    servaddr.sin_family  = AF_INET;
-    servaddr.sin_port    = htons(38899);  // WiZ light UDP port
-    inet_aton(BULB_IP, &servaddr.sin_addr);
-
-    // Create JSON payload: {"method":"setPilot","params":{"dimming":brightness}}
-    char payload[100];
-    snprintf(payload, sizeof(payload), R"({"method":"setPilot","params":{"dimming":%d}})", brightness);
-
-    sendto(sockfd, payload, strlen(payload), 0, (sockaddr *)&servaddr, sizeof(servaddr));
-    close(sockfd);
-#endif
+    
+    app->wizBulb.setBrightness(brightness);
 }
 
 void ClockApp::start(lv_obj_t *screen) {
@@ -94,6 +78,7 @@ void ClockApp::start(lv_obj_t *screen) {
     lv_group_focus_freeze(group, true);
     lv_indev_set_group(dial->encoder, group);
 
+    lv_obj_set_user_data(brightnessSlider, this);
     lv_obj_add_event_cb(brightnessSlider, onBrightnessChangedCallback, LV_EVENT_VALUE_CHANGED, this);
 
     overlayTimer = lv_timer_create(
@@ -112,7 +97,7 @@ void ClockApp::start(lv_obj_t *screen) {
 void ClockApp::onBrightnessChangedCallback(lv_event_t *e) {
     const auto app      = static_cast<ClockApp *>(lv_event_get_user_data(e));
     const lv_obj_t *arc = lv_event_get_target_obj(e);
-    lv_label_set_text_fmt(app->brightnessLabel, "%" LV_PRId32 "%%", lv_arc_get_value(arc));
+    lv_label_set_text_fmt(app->brightnessLabel, "%d%%", lv_arc_get_value(arc));
 
     if (lv_obj_has_flag(app->brightnessOverlay, LV_OBJ_FLAG_HIDDEN)) {
         lv_obj_clear_flag(app->brightnessOverlay, LV_OBJ_FLAG_HIDDEN);

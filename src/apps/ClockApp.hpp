@@ -8,6 +8,7 @@
 #include <lvgl.h>
 
 #include "App.hpp"
+#include "WizBulb.hpp"
 
 class ClockApp final : public App {
 public:
@@ -29,6 +30,7 @@ private:
     lv_timer_t *overlayTimer    = nullptr;
     lv_obj_t *brightnessOverlay = nullptr;
     lv_timer_t *clockTimer      = nullptr;
+    WizBulb wizBulb;
 };
 
 #endif  // CLOCKAPP_H

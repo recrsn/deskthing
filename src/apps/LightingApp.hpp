@@ -7,12 +7,7 @@
 #include <lvgl.h>
 
 #include "App.hpp"
-
-#ifdef ESP_PLATFORM
-#include <lwip/sockets.h>
-#else
-#include <netinet/in.h>
-#endif
+#include "WizBulb.hpp"
 
 class LightingApp : public App {
 public:
@@ -40,8 +35,7 @@ private:
     int current_color    = 0;
     int current_cct      = 31;
     bool is_rgb_mode     = true;
-    int udp_socket       = -1;
-    sockaddr_in wiz_addr = {};
+    WizBulb wizBulb;
 
     void update_display() const;
 
