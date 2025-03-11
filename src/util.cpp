@@ -28,3 +28,12 @@ lv_indev_t *findEncoder() {
     }
     return nullptr;
 }
+
+lv_color_t rgb888_to_565(lv_color_t rgb888) {
+    lv_color_t color;
+    color.red   = rgb888.red >> 3;
+    color.green = rgb888.green >> 2;
+    color.blue  = rgb888.blue >> 3;
+
+    return color;
+}

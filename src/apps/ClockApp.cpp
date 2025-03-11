@@ -121,7 +121,7 @@ void ClockApp::onBrightnessChangedCallback(lv_event_t *e) {
     lv_timer_resume(app->overlayTimer);
 
     // Send brightness command to Wiz light
-    lv_async_call(setBrightnessCallback, (void*)arc);
+    lv_async_call(setBrightnessCallback, (void *)arc);
 }
 
 void ClockApp::update(lv_timer_t *timer) {

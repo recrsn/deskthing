@@ -14,4 +14,5 @@
 
 void generatePassword(char* password, int length);
 lv_indev_t* findEncoder();
+lv_color_t rgb888_to_565(lv_color_t rgb888);
 #endif  // UTIL_H

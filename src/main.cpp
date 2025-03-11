@@ -3,6 +3,7 @@
 #include <resources/fontawesome.h>
 
 #include <apps/ClockApp.hpp>
+#include <apps/LightingApp.hpp>
 #include <apps/Timer.hpp>
 #include <memory>
 
@@ -19,22 +20,20 @@
 #define delay(x) (usleep(x * 1000))
 #endif
 
-M5GFX gfx;
 ScreenManager *manager;
 
 void setup() {
-#ifdef M5DIAL_H
     m5::M5Unified::config_t cfg;
+    cfg.fallback_board = m5::board_t::board_M5Dial;
+#ifdef M5DIAL_H
     cfg.serial_baudrate = 115200;
     M5Dial.begin(cfg, true, false);
 #else
-    M5.begin();
+    M5.begin(cfg);
 #endif
 
     M5.Rtc.setDateTime({{2023, 10, 25}, {15, 56, 56}});
     M5.Display.setBrightness(24);
-
-    gfx.init();
 
 #if defined(ARDUINO) && defined(ESP_PLATFORM)
 #ifndef NO_WIFI
@@ -78,7 +77,7 @@ void setup() {
 #endif
 #endif
 #endif
-    lvgl_m5_dial_t *m5Dial = lvgl_port_init(gfx);
+    lvgl_m5_dial_t *m5Dial = lvgl_port_init(M5.Display);
 
     if (m5Dial == nullptr) {
         LV_LOG_ERROR("Could not initialize display");
@@ -98,7 +97,7 @@ void setup() {
 
         manager->registerApp("Clock", LV_SYMBOL_CLOCK, [](lvgl_m5_dial_t *d) { return std::make_unique<ClockApp>(d); });
         manager->registerApp("Timer", LV_SYMBOL_TIMER, [](lvgl_m5_dial_t *d) { return std::make_unique<Timer>(d); });
-
+        manager->registerApp("Lighting", LV_SYMBOL_LIGHTBULB, [](lvgl_m5_dial_t *d) { return std::make_unique<LightingApp>(d); });
         /* Apps to be added
          * Weather
          * Timer

@@ -49,6 +49,7 @@ void ScreenManager::showLauncher() {
     lv_obj_set_style_bg_opa(list, LV_OPA_TRANSP, 0);  // Set transparent background
     lv_obj_set_size(list, 180, 180);
     lv_obj_center(list);
+    lv_obj_set_style_bg_color(newScreen, lv_color_hex(0x0), 0);
 
     for (const auto& [name, _] : appRegistry) {
         addAppButton(list, name);
