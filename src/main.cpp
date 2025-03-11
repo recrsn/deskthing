@@ -122,5 +122,12 @@ void loop() {
         manager->updateApp();
         lvgl_port_unlock();
     }
+
+    if (lv_display_get_inactive_time(nullptr) > 3600000) {
+        M5.Display.sleep();
+    } else {
+        M5.Display.wakeup();
+    }
+
     delay(10);
 }

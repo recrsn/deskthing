@@ -154,35 +154,15 @@ void ClockApp::update() {
 }
 
 void ClockApp::stop() {
-    if (timeLabel) {
-        lv_obj_del(timeLabel);
-    }
-
-    if (dateLabel) {
-        lv_obj_del(dateLabel);
-    }
-
-    if (wifiIcon) {
-        lv_obj_del(wifiIcon);
-    }
-
-    if (brightnessSlider) {
-        lv_obj_del(brightnessSlider);
-    }
-
-    if (brightnessLabel) {
-        lv_obj_del(brightnessLabel);
-    }
-
-    if (group) {
-        lv_group_del(group);
-    }
-
     if (overlayTimer) {
         lv_timer_del(overlayTimer);
     }
 
-    if (brightnessOverlay) {
-        lv_obj_del(brightnessOverlay);
+    if (clockTimer) {
+        lv_timer_del(clockTimer);
+    }
+
+    if (group) {
+        lv_group_del(group);
     }
 }
