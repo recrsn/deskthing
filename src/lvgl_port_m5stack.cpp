@@ -1,5 +1,9 @@
 #include "lvgl_port_m5stack.hpp"
 
+#ifdef ESP_PLATFORM
+#include <M5Dial.h>
+#endif
+
 #if defined(ARDUINO) && defined(ESP_PLATFORM)
 static SemaphoreHandle_t xGuiSemaphore;
 #elif !defined(ARDUINO) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
@@ -49,86 +53,6 @@ static uint32_t lvgl_tick_timer(uint32_t interval, void *param) {
 }
 #endif
 
-#if LVGL_USE_V8 == 1
-static lv_disp_draw_buf_t draw_buf;
-static void lvgl_flush_cb(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p) {
-    M5GFX &gfx = *(M5GFX *)disp->user_data;
-    int w      = (area->x2 - area->x1 + 1);
-    int h      = (area->y2 - area->y1 + 1);
-
-    gfx.startWrite();
-    gfx.setAddrWindow(area->x1, area->y1, w, h);
-    gfx.writePixels((lgfx::rgb565_t *)&color_p->full, w * h);
-    // gfx.writePixels((lgfx::swap565_t *)&color_p->full, w * h);  // swap red and blue
-    gfx.endWrite();
-
-    lv_disp_flush_ready(disp);
-}
-
-static void lvgl_read_cb(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
-    M5GFX &gfx = *(M5GFX *)indev_driver->user_data;
-    uint16_t touchX, touchY;
-
-    bool touched = gfx.getTouch(&touchX, &touchY);
-    if (!touched) {
-        data->state = LV_INDEV_STATE_REL;
-    } else {
-        data->state   = LV_INDEV_STATE_PR;
-        data->point.x = touchX;
-        data->point.y = touchY;
-    }
-}
-
-void lvgl_port_init(M5GFX &gfx) {
-    lv_init();
-
-#if defined(ARDUINO) && defined(ESP_PLATFORM)
-#if defined(BOARD_HAS_PSRAM)
-    static lv_color_t *buf1 =
-        (lv_color_t *)heap_caps_malloc(gfx.width() * LV_BUFFER_LINE * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
-    static lv_color_t *buf2 =
-        (lv_color_t *)heap_caps_malloc(gfx.width() * LV_BUFFER_LINE * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
-    lv_disp_draw_buf_init(&draw_buf, buf1, buf2, gfx.width() * LV_BUFFER_LINE);
-#else
-    static lv_color_t *buf1 = (lv_color_t *)malloc(gfx.width() * LV_BUFFER_LINE * sizeof(lv_color_t));
-    lv_disp_draw_buf_init(&draw_buf, buf1, NULL, gfx.width() * LV_BUFFER_LINE);
-#endif
-#elif !defined(ARDUINO) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
-    static lv_color_t *buf1 = (lv_color_t *)malloc(gfx.width() * LV_BUFFER_LINE * sizeof(lv_color_t));
-    static lv_color_t *buf2 = (lv_color_t *)malloc(gfx.width() * LV_BUFFER_LINE * sizeof(lv_color_t));
-    lv_disp_draw_buf_init(&draw_buf, buf1, buf2, gfx.width() * LV_BUFFER_LINE);
-#endif
-
-    static lv_disp_drv_t disp_drv;
-    lv_disp_drv_init(&disp_drv);
-    disp_drv.hor_res   = gfx.width();
-    disp_drv.ver_res   = gfx.height();
-    disp_drv.flush_cb  = lvgl_flush_cb;
-    disp_drv.draw_buf  = &draw_buf;
-    disp_drv.user_data = &gfx;
-    lv_disp_drv_register(&disp_drv);
-
-    static lv_indev_drv_t indev_drv;
-    lv_indev_drv_init(&indev_drv);
-    indev_drv.type      = LV_INDEV_TYPE_POINTER;
-    indev_drv.read_cb   = lvgl_read_cb;
-    indev_drv.user_data = &gfx;
-    lv_indev_t *indev   = lv_indev_drv_register(&indev_drv);
-
-#if defined(ARDUINO) && defined(ESP_PLATFORM)
-    xGuiSemaphore                                     = xSemaphoreCreateMutex();
-    const esp_timer_create_args_t periodic_timer_args = {.callback = &lvgl_tick_timer, .name = "lvgl_tick_timer"};
-    esp_timer_handle_t periodic_timer;
-    ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 10 * 1000));
-    xTaskCreate(lvgl_rtos_task, "lvgl_rtos_task", 4096, NULL, 1, NULL);
-#elif !defined(ARDUINO) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
-    xGuiMutex = SDL_CreateMutex();
-    SDL_AddTimer(10, lvgl_tick_timer, NULL);
-    SDL_CreateThread(lvgl_sdl_thread, "lvgl_sdl_thread", NULL);
-#endif
-}
-#elif LVGL_USE_V9 == 1
 static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map) {
     M5GFX &gfx = *static_cast<M5GFX *>(lv_display_get_driver_data(disp));
 
@@ -157,18 +81,18 @@ static void lvgl_read_cb(lv_indev_t *indev, lv_indev_data_t *data) {
     }
 }
 static void lvgl_read_encoder_cb(lv_indev_t *indev, lv_indev_data_t *data) {
-#ifdef M5DIAL_ENCODER_H
+#ifdef ESP_PLATFORM
     M5Dial.update();
     static int32_t oldPosition = 0;
 
-    int32_t newPosition = M5Dial.Encoder.read();
-    int32_t diff       = newPosition - oldPosition;
-    data->enc_diff      = diff;
-    oldPosition         = newPosition;
-    data->state         = LV_INDEV_STATE_RELEASED;
-    data->key =  diff > 0 ? LV_KEY_RIGHT : diff < 0 ? LV_KEY_LEFT : 0;
+    const int32_t newPosition = M5Dial.Encoder.read();
+    const int32_t diff        = newPosition - oldPosition;
+    data->enc_diff            = diff;
+    oldPosition               = newPosition;
+    data->state               = LV_INDEV_STATE_RELEASED;
+    data->key                 = diff > 0 ? LV_KEY_RIGHT : diff < 0 ? LV_KEY_LEFT : 0;
     // data->state         = M5.BtnA.isPressed() ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
-#elif !defined(ARDUINO) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
+#else
     // Implement left and right arrows for encoder
     if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_RIGHT]) {
         data->key      = LV_KEY_RIGHT;
@@ -249,7 +173,6 @@ lvgl_m5_dial_t *lvgl_port_init(M5GFX &gfx) {
 
     return new lvgl_m5_dial_t{disp, indev, indev_encoder};
 }
-#endif
 
 bool lvgl_port_lock(void) {
 #if defined(ARDUINO) && defined(ESP_PLATFORM)

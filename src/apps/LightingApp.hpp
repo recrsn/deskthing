@@ -4,15 +4,15 @@
 
 #ifndef LIGHTINGAPP_HPP
 #define LIGHTINGAPP_HPP
+#include <lvgl.h>
+
+#include "App.hpp"
 
 #ifdef ESP_PLATFORM
 #include <lwip/sockets.h>
 #else
 #include <netinet/in.h>
 #endif
-
-#include "App.hpp"
-#include "lvgl.h"
 
 class LightingApp : public App {
 public:
@@ -43,13 +43,14 @@ private:
     int udp_socket       = -1;
     sockaddr_in wiz_addr = {};
 
-    static void toggle_mode(lv_event_t* e);
-    void send_udp_packet();
-    static void arc_event_cb(lv_event_t* e);
     void update_display() const;
 
+    static void toggle_mode(lv_event_t* e);
+    static void arc_event_cb(lv_event_t* e);
     static void onBrightnessChangedCallback(lv_event_t* e);
-    static void setBrightnessCallback(void* self);
+
+    static void setBrightness(void* data);
+    static void changeColor(void* data);
 };
 
 #endif  // LIGHTINGAPP_HPP

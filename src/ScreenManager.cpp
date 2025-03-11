@@ -10,7 +10,7 @@ void ScreenManager::backButtonEventHandler(lv_event_t* e) {
 
 void ScreenManager::launcherEventHandler(lv_event_t* e) {
     auto* btn           = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    const char* appName = static_cast<const char*>(lv_obj_get_user_data(btn));
+    auto appName = static_cast<const char*>(lv_obj_get_user_data(btn));
     auto* manager       = static_cast<ScreenManager*>(lv_event_get_user_data(e));
     if (manager && appName) {
         manager->launchApp(appName);
@@ -65,7 +65,7 @@ void ScreenManager::launchApp(const std::string& appName) {
         return;
     }
 
-    auto newScreen = lv_obj_create(nullptr);
+    const auto newScreen = lv_obj_create(nullptr);
 
     currentApp = appRegistry[appName](dial);
     currentApp->start(newScreen);

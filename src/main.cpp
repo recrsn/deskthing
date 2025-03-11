@@ -5,7 +5,6 @@
 #include <apps/ClockApp.hpp>
 #include <apps/LightingApp.hpp>
 #include <apps/Timer.hpp>
-#include <memory>
 
 #include "ScreenManager.hpp"
 #include "lvgl_port_m5stack.hpp"
@@ -24,14 +23,13 @@ ScreenManager *manager;
 
 void setup() {
     m5::M5Unified::config_t cfg;
-    cfg.fallback_board = m5::board_t::board_M5Dial;
-#ifdef M5DIAL_H
+    // cfg.fallback_board = m5::board_t::board_M5Dial;
+#ifdef ESP_PLATFORM
     cfg.serial_baudrate = 115200;
     M5Dial.begin(cfg, true, false);
 #else
     M5.begin(cfg);
 #endif
-
     M5.Rtc.setDateTime({{2023, 10, 25}, {15, 56, 56}});
     M5.Display.setBrightness(24);
 
@@ -97,7 +95,8 @@ void setup() {
 
         manager->registerApp("Clock", LV_SYMBOL_CLOCK, [](lvgl_m5_dial_t *d) { return std::make_unique<ClockApp>(d); });
         manager->registerApp("Timer", LV_SYMBOL_TIMER, [](lvgl_m5_dial_t *d) { return std::make_unique<Timer>(d); });
-        manager->registerApp("Lighting", LV_SYMBOL_LIGHTBULB, [](lvgl_m5_dial_t *d) { return std::make_unique<LightingApp>(d); });
+        manager->registerApp("Lighting", LV_SYMBOL_LIGHTBULB,
+                             [](lvgl_m5_dial_t *d) { return std::make_unique<LightingApp>(d); });
         /* Apps to be added
          * Weather
          * Timer

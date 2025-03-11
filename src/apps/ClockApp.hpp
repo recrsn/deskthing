@@ -17,7 +17,8 @@ public:
     void stop() override;
 
 private:
-    static void update(lv_timer_t *timer);
+    static void updateTime(lv_timer_t *timer);
+    void update();
     static void onBrightnessChangedCallback(lv_event_t *e);
     lv_obj_t *timeLabel         = nullptr;
     lv_obj_t *dateLabel         = nullptr;

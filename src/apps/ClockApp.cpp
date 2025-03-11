@@ -105,7 +105,7 @@ void ClockApp::start(lv_obj_t *screen) {
     lv_timer_set_auto_delete(overlayTimer, false);
     lv_timer_pause(overlayTimer);
 
-    clockTimer = lv_timer_create(update, 1000, this);
+    clockTimer = lv_timer_create(updateTime, 1000, this);
     lv_timer_ready(clockTimer);
 }
 
@@ -124,7 +124,7 @@ void ClockApp::onBrightnessChangedCallback(lv_event_t *e) {
     lv_async_call(setBrightnessCallback, (void *)arc);
 }
 
-void ClockApp::update(lv_timer_t *timer) {
+void ClockApp::updateTime(lv_timer_t *timer) {
     const auto app   = static_cast<ClockApp *>(lv_timer_get_user_data(timer));
     const time_t now = time(nullptr);
     const tm *t      = localtime(&now);
@@ -136,19 +136,21 @@ void ClockApp::update(lv_timer_t *timer) {
     static char dateStr[20];
     strftime(dateStr, sizeof(dateStr), "%a, %d %b", t);
     lv_label_set_text(app->dateLabel, dateStr);
+}
 
-    // if (lv_obj_has_flag(brightnessOverlay, LV_OBJ_FLAG_HIDDEN)) {
-    //     lv_indev_data_t data;
-    //     auto indev_get_read_cb = lv_indev_get_read_cb(dial->encoder);
-    //     indev_get_read_cb(dial->encoder, &data);
-    //     if (data.enc_diff) {
-    //         lv_arc_set_value(brightnessSlider, lv_arc_get_value(brightnessSlider) + data.enc_diff);
-    //         lv_obj_send_event(brightnessSlider, LV_EVENT_VALUE_CHANGED, nullptr);
-    //         lv_obj_clear_flag(brightnessOverlay, LV_OBJ_FLAG_HIDDEN);
-    //         lv_timer_reset(timer);
-    //         lv_timer_resume(timer);
-    //     }
-    // }
+void ClockApp::update() {
+    if (lv_obj_has_flag(this->brightnessOverlay, LV_OBJ_FLAG_HIDDEN)) {
+        lv_indev_data_t data;
+        auto indev_get_read_cb = lv_indev_get_read_cb(this->dial->encoder);
+        indev_get_read_cb(this->dial->encoder, &data);
+        if (data.enc_diff) {
+            lv_arc_set_value(this->brightnessSlider, lv_arc_get_value(this->brightnessSlider) + data.enc_diff);
+            lv_obj_send_event(this->brightnessSlider, LV_EVENT_VALUE_CHANGED, nullptr);
+            lv_obj_clear_flag(this->brightnessOverlay, LV_OBJ_FLAG_HIDDEN);
+            lv_timer_reset(overlayTimer);
+            lv_timer_resume(overlayTimer);
+        }
+    }
 }
 
 void ClockApp::stop() {
