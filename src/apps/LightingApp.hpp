@@ -36,6 +36,8 @@ private:
     int current_cct      = 31;
     bool is_rgb_mode     = true;
     WizBulb wizBulb;
+    lv_timer_t* stateRequestTimer = nullptr;
+    bool bulbOnline = false;
 
     void update_display() const;
 
@@ -45,6 +47,10 @@ private:
 
     static void setBrightness(void* data);
     static void changeColor(void* data);
+    
+    // Handle bulb state updates
+    void onBulbStateUpdate(const WizBulbState& state);
+    static void requestBulbState(lv_timer_t* timer);
 };
 
 #endif  // LIGHTINGAPP_HPP

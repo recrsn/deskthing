@@ -18,6 +18,10 @@
 #include "resources/hsv_circle.h"
 
 LightingApp::LightingApp(lvgl_m5_dial_t* d) : App(d) {
+    // Set up the callback
+    wizBulb.setStateCallback([this](const WizBulbState& state) {
+        this->onBulbStateUpdate(state);
+    });
 }
 
 void LightingApp::start(lv_obj_t* screen) {
@@ -105,6 +109,12 @@ void LightingApp::start(lv_obj_t* screen) {
     lv_group_focus_freeze(brightnessGroup, true);
 
     lv_obj_add_event_cb(screen, screenSwipeCallback, LV_EVENT_GESTURE, this);
+    
+    // Create timer to periodically request bulb state
+    stateRequestTimer = lv_timer_create(requestBulbState, 10000, this);  // Request every 10 seconds
+    
+    // Request initial state
+    wizBulb.requestState();
 }
 
 void LightingApp::screenSwipeCallback(lv_event_t* e) {
@@ -203,6 +213,47 @@ void LightingApp::onBrightnessChangedCallback(lv_event_t* e) {
 
 void LightingApp::update() {}
 
+void LightingApp::onBulbStateUpdate(const WizBulbState& state) {
+    bulbOnline = state.isOnline;
+    
+    // Update UI based on bulb state
+    if (bulbOnline) {
+        // Bulb is online, update UI with current state
+        lv_obj_set_style_text_color(bulb_icon, lv_color_hex(0xFFFFFF), 0);
+        
+        // Update brightness slider
+        lv_arc_set_value(brightnessSlider, state.brightness);
+        lv_label_set_text_fmt(brightnessLabel, "%d%%", state.brightness);
+        
+        // Update color/temperature based on mode
+        is_rgb_mode = state.isRGBMode;
+        lv_obj_set_state(toggleBtn, is_rgb_mode ? LV_STATE_CHECKED : LV_STATE_DEFAULT, true);
+        
+        if (is_rgb_mode) {
+            // Convert RGB to HSV and update color slider
+            uint16_t h, s, v;
+            lv_color_rgb_to_hsv(state.red, state.green, state.blue, &h, &s, &v);
+            current_color = h;
+            lv_arc_set_value(arcSlider, current_color);
+        } else {
+            // Update temperature slider
+            current_cct = state.temperature / 100;
+            lv_arc_set_value(arcSlider, current_cct);
+            lv_label_set_text_fmt(cct_label, "%dK", current_cct * 100);
+        }
+        
+        update_display();
+    } else {
+        // Bulb is offline, update UI to show offline state
+        lv_obj_set_style_text_color(bulb_icon, lv_color_hex(0x888888), 0);
+    }
+}
+
+void LightingApp::requestBulbState(lv_timer_t* timer) {
+    auto* self = static_cast<LightingApp*>(lv_timer_get_user_data(timer));
+    self->wizBulb.requestState();
+}
+
 void LightingApp::stop() {
     if (group) {
         lv_group_del(group);
@@ -210,5 +261,10 @@ void LightingApp::stop() {
 
     if (brightnessGroup) {
         lv_group_del(brightnessGroup);
+    }
+    
+    if (stateRequestTimer) {
+        lv_timer_del(stateRequestTimer);
+        stateRequestTimer = nullptr;
     }
 }

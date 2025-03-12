@@ -20,6 +20,13 @@
 
 #include "lvgl_port_m5stack.hpp"
 
+ClockApp::ClockApp(lvgl_m5_dial_t* dial) : App(dial) {
+    // Set up the callback
+    wizBulb.setStateCallback([this](const WizBulbState& state) {
+        this->onBulbStateUpdate(state);
+    });
+}
+
 void ClockApp::setBrightnessCallback(void *data) {
     auto arc = static_cast<lv_obj_t *>(data);
     auto app = static_cast<ClockApp *>(lv_obj_get_user_data(arc));
@@ -92,6 +99,12 @@ void ClockApp::start(lv_obj_t *screen) {
 
     clockTimer = lv_timer_create(updateTime, 1000, this);
     lv_timer_ready(clockTimer);
+    
+    // Create timer to periodically request bulb state
+    stateRequestTimer = lv_timer_create(requestBulbState, 10000, this);  // Request every 10 seconds
+    
+    // Request initial state
+    wizBulb.requestState();
 }
 
 void ClockApp::onBrightnessChangedCallback(lv_event_t *e) {
@@ -138,6 +151,22 @@ void ClockApp::update() {
     }
 }
 
+void ClockApp::onBulbStateUpdate(const WizBulbState& state) {
+    bulbOnline = state.isOnline;
+    
+    // Update UI based on bulb state
+    if (bulbOnline) {
+        // Bulb is online, update UI with current state
+        lv_arc_set_value(brightnessSlider, state.brightness);
+        lv_label_set_text_fmt(brightnessLabel, "%d%%", state.brightness);
+    }
+}
+
+void ClockApp::requestBulbState(lv_timer_t* timer) {
+    auto* self = static_cast<ClockApp*>(lv_timer_get_user_data(timer));
+    self->wizBulb.requestState();
+}
+
 void ClockApp::stop() {
     if (overlayTimer) {
         lv_timer_del(overlayTimer);
@@ -149,5 +178,10 @@ void ClockApp::stop() {
 
     if (group) {
         lv_group_del(group);
+    }
+    
+    if (stateRequestTimer) {
+        lv_timer_del(stateRequestTimer);
+        stateRequestTimer = nullptr;
     }
 }

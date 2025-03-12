@@ -12,7 +12,7 @@
 
 class ClockApp final : public App {
 public:
-    explicit ClockApp(lvgl_m5_dial_t *dial) : App(dial) {}
+    explicit ClockApp(lvgl_m5_dial_t *dial);
     static void setBrightnessCallback(void *data);
     void start(lv_obj_t *parent) override;
     void stop() override;
@@ -31,6 +31,12 @@ private:
     lv_obj_t *brightnessOverlay = nullptr;
     lv_timer_t *clockTimer      = nullptr;
     WizBulb wizBulb;
+    lv_timer_t* stateRequestTimer = nullptr;
+    bool bulbOnline = false;
+    
+    // Handle bulb state updates
+    void onBulbStateUpdate(const WizBulbState& state);
+    static void requestBulbState(lv_timer_t* timer);
 };
 
 #endif  // CLOCKAPP_H
