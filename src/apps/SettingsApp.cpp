@@ -135,49 +135,20 @@ SettingsApp::SettingsApp(lvgl_m5_dial_t *dial) : App(dial) {}
 void SettingsApp::start(lv_obj_t *screen) {
     lv_obj_set_style_bg_color(screen, lv_color_hex(0x000000), 0);
     // Keep overall size ~180x180
-    lv_obj_t *parent = lv_obj_create(screen);
-    lv_obj_set_size(parent, 180, 180);
-    lv_obj_set_style_bg_color(parent, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_radius(parent, 0, 0);
-    lv_obj_set_style_border_width(parent, 0, 0);
-    lv_obj_center(parent);
-    lv_obj_set_layout(parent, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(parent, LV_FLEX_FLOW_COLUMN);
+    // Create a list to hold our settings items
+    lv_obj_t *settingsList = lv_list_create(screen);
+    lv_obj_set_size(settingsList, 180, 180);
+    lv_obj_align(settingsList, LV_ALIGN_CENTER, 0, 0);
 
-    //    // Load saved settings first
-    //    loadSettings();
-    //    applySettings();
+    // Add each setting as a list item
+    lv_obj_t *btnBrightness = lv_list_add_btn(settingsList, NULL, "Brightness");
+    lv_obj_add_event_cb(btnBrightness, onListItemClicked, LV_EVENT_CLICKED, this);
 
-    // Create brightness slider
-    brightnessSlider = lv_slider_create(parent);
-    lv_slider_set_range(brightnessSlider, 0, 255);
-    lv_slider_set_value(brightnessSlider, 128, LV_ANIM_OFF);
-    lv_obj_add_event_cb(brightnessSlider, onBrightnessChanged, LV_EVENT_VALUE_CHANGED, this);
+    lv_obj_t *btnVolume = lv_list_add_btn(settingsList, NULL, "Volume");
+    lv_obj_add_event_cb(btnVolume, onListItemClicked, LV_EVENT_CLICKED, this);
 
-    // Create volume slider
-    volumeSlider = lv_slider_create(parent);
-    lv_slider_set_range(volumeSlider, 0, 100);
-    lv_slider_set_value(volumeSlider, 50, LV_ANIM_OFF);
-    lv_obj_add_event_cb(volumeSlider, onVolumeChanged, LV_EVENT_VALUE_CHANGED, this);
-
-    // Create timezone dropdown
-    timezoneDropdown = lv_dropdown_create(parent);
-    lv_dropdown_set_options(timezoneDropdown,
-                            "UTC-12\nUTC-11\nUTC-10\nUTC-9\nUTC-8\n"
-                            "UTC-7\nUTC-6\nUTC-5\nUTC-4\nUTC-3\n"
-                            "UTC-2\nUTC-1\nUTC+0\nUTC+1\nUTC+2\n"
-                            "UTC+3\nUTC+4\nUTC+5\nUTC+6\nUTC+7\n"
-                            "UTC+8\nUTC+9\nUTC+10\nUTC+11\nUTC+12");
-    lv_obj_add_event_cb(timezoneDropdown, onTimezoneChanged, LV_EVENT_VALUE_CHANGED, this);
-
-    // Create a group so the encoder can navigate
-    group = lv_group_create();
-    lv_group_add_obj(group, brightnessSlider);
-    lv_group_add_obj(group, volumeSlider);
-    lv_group_add_obj(group, timezoneDropdown);
-    lv_group_set_editing(group, true);
-    lv_group_focus_obj(brightnessSlider);
-    lv_indev_set_group(dial->encoder, group);
+    lv_obj_t *btnTimezone = lv_list_add_btn(settingsList, NULL, "Timezone");
+    lv_obj_add_event_cb(btnTimezone, onListItemClicked, LV_EVENT_CLICKED, this);
 }
 
 void SettingsApp::stop() {
