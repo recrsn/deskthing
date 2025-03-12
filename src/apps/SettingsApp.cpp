@@ -71,44 +71,6 @@ void BrightnessFragment::onBrightnessChanged(lv_event_t* e) {
     fragment->settingsApp->prefs.end();
 #endif
 }
-    lv_obj_add_flag(oldScreen, LV_OBJ_FLAG_HIDDEN); // hide the list
-    lv_obj_t *frag = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(frag, 180, 180);
-    lv_obj_center(frag);
-
-    brightnessSlider = lv_slider_create(frag);
-    lv_slider_set_range(brightnessSlider, 0, 255);
-    lv_slider_set_value(brightnessSlider, 128, LV_ANIM_OFF);
-    lv_obj_align(brightnessSlider, LV_ALIGN_CENTER, 0, -20);
-    lv_obj_add_event_cb(brightnessSlider, onBrightnessChanged, LV_EVENT_VALUE_CHANGED, this);
-
-    // Save/Cancel buttons (placed below)
-    lv_obj_t *btnSave = lv_btn_create(lv_scr_act());
-    lv_obj_align(btnSave, LV_ALIGN_BOTTOM_LEFT, 10, -10);
-    lv_obj_add_event_cb(btnSave, [](lv_event_t *e) {
-        auto self = static_cast<SettingsApp *>(lv_event_get_user_data(e));
-        // Save changes, return to list
-        self->saveSettings();
-        lv_obj_del(lv_event_get_target_obj(e)); // remove button
-        // cleanup or hide the fragment
-    }, LV_EVENT_CLICKED, this);
-
-    lv_obj_t *lblSave = lv_label_create(btnSave);
-    lv_label_set_text(lblSave, "Save");
-    lv_obj_center(lblSave);
-
-    lv_obj_t *btnCancel = lv_btn_create(lv_scr_act());
-    lv_obj_align(btnCancel, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
-    lv_obj_add_event_cb(btnCancel, [](lv_event_t *e) {
-        auto self = static_cast<SettingsApp *>(lv_event_get_user_data(e));
-        // discard changes if needed, remove fragment
-        // Show the main list again
-    }, LV_EVENT_CLICKED, this);
-
-    lv_obj_t *lblCancel = lv_label_create(btnCancel);
-    lv_label_set_text(lblCancel, "Cancel");
-    lv_obj_center(lblCancel);
-}
 
 // =============== VolumeFragment Implementation ===============
 
@@ -175,44 +137,6 @@ void VolumeFragment::onVolumeChanged(lv_event_t* e) {
     fragment->settingsApp->prefs.end();
 #endif
 }
-    lv_obj_add_flag(oldScreen, LV_OBJ_FLAG_HIDDEN); // hide the list
-    lv_obj_t *frag = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(frag, 180, 180);
-    lv_obj_center(frag);
-
-    volumeSlider = lv_slider_create(frag);
-    lv_slider_set_range(volumeSlider, 0, 100);
-    lv_slider_set_value(volumeSlider, 50, LV_ANIM_OFF);
-    lv_obj_align(volumeSlider, LV_ALIGN_CENTER, 0, -20);
-    lv_obj_add_event_cb(volumeSlider, onVolumeChanged, LV_EVENT_VALUE_CHANGED, this);
-
-    // Save/Cancel buttons (placed below)
-    lv_obj_t *btnSave = lv_btn_create(lv_scr_act());
-    lv_obj_align(btnSave, LV_ALIGN_BOTTOM_LEFT, 10, -10);
-    lv_obj_add_event_cb(btnSave, [](lv_event_t *e) {
-        auto self = static_cast<SettingsApp *>(lv_event_get_user_data(e));
-        // Save changes, return to list
-        self->saveSettings();
-        lv_obj_del(lv_event_get_target_obj(e)); // remove button
-        // cleanup or hide the fragment
-    }, LV_EVENT_CLICKED, this);
-
-    lv_obj_t *lblSave = lv_label_create(btnSave);
-    lv_label_set_text(lblSave, "Save");
-    lv_obj_center(lblSave);
-
-    lv_obj_t *btnCancel = lv_btn_create(lv_scr_act());
-    lv_obj_align(btnCancel, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
-    lv_obj_add_event_cb(btnCancel, [](lv_event_t *e) {
-        auto self = static_cast<SettingsApp *>(lv_event_get_user_data(e));
-        // discard changes if needed, remove fragment
-        // Show the main list again
-    }, LV_EVENT_CLICKED, this);
-
-    lv_obj_t *lblCancel = lv_label_create(btnCancel);
-    lv_label_set_text(lblCancel, "Cancel");
-    lv_obj_center(lblCancel);
-}
 
 // =============== TimezoneFragment Implementation ===============
 
@@ -276,48 +200,6 @@ void TimezoneFragment::onTimezoneChanged(lv_event_t* e) {
     // Implementation depends on how you set the time zone in your environment
     // e.g., setenv("TZ", "UTC+...", 1); tzset(); etc.
 #endif
-}
-    lv_obj_add_flag(oldScreen, LV_OBJ_FLAG_HIDDEN); // hide the list
-    lv_obj_t *frag = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(frag, 180, 180);
-    lv_obj_center(frag);
-
-    timezoneDropdown = lv_dropdown_create(frag);
-    lv_dropdown_set_options(timezoneDropdown,
-                            "UTC-12\nUTC-11\nUTC-10\nUTC-9\nUTC-8\n"
-                            "UTC-7\nUTC-6\nUTC-5\nUTC-4\nUTC-3\n"
-                            "UTC-2\nUTC-1\nUTC+0\nUTC+1\nUTC+2\n"
-                            "UTC+3\nUTC+4\nUTC+5\nUTC+6\nUTC+7\n"
-                            "UTC+8\nUTC+9\nUTC+10\nUTC+11\nUTC+12");
-    lv_obj_align(timezoneDropdown, LV_ALIGN_CENTER, 0, -20);
-    lv_obj_add_event_cb(timezoneDropdown, onTimezoneChanged, LV_EVENT_VALUE_CHANGED, this);
-
-    // Save/Cancel buttons (placed below)
-    lv_obj_t *btnSave = lv_btn_create(lv_scr_act());
-    lv_obj_align(btnSave, LV_ALIGN_BOTTOM_LEFT, 10, -10);
-    lv_obj_add_event_cb(btnSave, [](lv_event_t *e) {
-        auto self = static_cast<SettingsApp *>(lv_event_get_user_data(e));
-        // Save changes, return to list
-        self->saveSettings();
-        lv_obj_del(lv_event_get_target_obj(e)); // remove button
-        // cleanup or hide the fragment
-    }, LV_EVENT_CLICKED, this);
-
-    lv_obj_t *lblSave = lv_label_create(btnSave);
-    lv_label_set_text(lblSave, "Save");
-    lv_obj_center(lblSave);
-
-    lv_obj_t *btnCancel = lv_btn_create(lv_scr_act());
-    lv_obj_align(btnCancel, LV_ALIGN_BOTTOM_RIGHT, -10, -10);
-    lv_obj_add_event_cb(btnCancel, [](lv_event_t *e) {
-        auto self = static_cast<SettingsApp *>(lv_event_get_user_data(e));
-        // discard changes if needed, remove fragment
-        // Show the main list again
-    }, LV_EVENT_CLICKED, this);
-
-    lv_obj_t *lblCancel = lv_label_create(btnCancel);
-    lv_label_set_text(lblCancel, "Cancel");
-    lv_obj_center(lblCancel);
 }
 
 // =============== SettingsApp Implementation ===============

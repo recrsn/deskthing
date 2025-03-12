@@ -3,6 +3,7 @@
 
 #include "App.hpp"
 #include <lvgl.h>
+#include <lvgl_fragment.h>  // Add this include
 
 #ifdef ESP_PLATFORM
 #include <Preferences.h>
