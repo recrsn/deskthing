@@ -1,31 +1,37 @@
 #include "SettingsApp.hpp"
+
 #include <lvgl.h>
 
 #ifdef ESP_PLATFORM
-#include <M5Unified.h> // For M5.Display, M5.Speaker, etc.
+#include <M5Unified.h>  // For M5.Display, M5.Speaker, etc.
 #endif
 
-SettingsApp::SettingsApp(lvgl_m5_dial_t *d) : App(d) {}
+SettingsApp::SettingsApp(lvgl_m5_dial_t *dial) : App(dial) {}
 
-void SettingsApp::start(lv_obj_t *parent) {
+void SettingsApp::start(lv_obj_t *screen) {
+    lv_obj_set_style_bg_color(screen, lv_color_hex(0x000000), 0);
     // Keep overall size ~180x180
+    lv_obj_t *parent = lv_obj_create(screen);
     lv_obj_set_size(parent, 180, 180);
     lv_obj_set_style_bg_color(parent, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_radius(parent, 0, 0);
+    lv_obj_set_style_border_width(parent, 0, 0);
+    lv_obj_center(parent);
+    lv_obj_set_layout(parent, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(parent, LV_FLEX_FLOW_COLUMN);
 
-    // Load saved settings first
-    loadSettings();
-    applySettings();
+    //    // Load saved settings first
+    //    loadSettings();
+    //    applySettings();
 
     // Create brightness slider
     brightnessSlider = lv_slider_create(parent);
-    lv_obj_align(brightnessSlider, LV_ALIGN_TOP_MID, 0, 20);
     lv_slider_set_range(brightnessSlider, 0, 255);
     lv_slider_set_value(brightnessSlider, 128, LV_ANIM_OFF);
     lv_obj_add_event_cb(brightnessSlider, onBrightnessChanged, LV_EVENT_VALUE_CHANGED, this);
 
     // Create volume slider
     volumeSlider = lv_slider_create(parent);
-    lv_obj_align_to(volumeSlider, brightnessSlider, LV_ALIGN_OUT_BOTTOM_MID, 0, 30);
     lv_slider_set_range(volumeSlider, 0, 100);
     lv_slider_set_value(volumeSlider, 50, LV_ANIM_OFF);
     lv_obj_add_event_cb(volumeSlider, onVolumeChanged, LV_EVENT_VALUE_CHANGED, this);
@@ -38,7 +44,6 @@ void SettingsApp::start(lv_obj_t *parent) {
                             "UTC-2\nUTC-1\nUTC+0\nUTC+1\nUTC+2\n"
                             "UTC+3\nUTC+4\nUTC+5\nUTC+6\nUTC+7\n"
                             "UTC+8\nUTC+9\nUTC+10\nUTC+11\nUTC+12");
-    lv_obj_align_to(timezoneDropdown, volumeSlider, LV_ALIGN_OUT_BOTTOM_MID, 0, 30);
     lv_obj_add_event_cb(timezoneDropdown, onTimezoneChanged, LV_EVENT_VALUE_CHANGED, this);
 
     // Create a group so the encoder can navigate
@@ -113,12 +118,18 @@ void SettingsApp::loadSettings() {
     prefs.begin("settings", true);
     int bright = prefs.getInt("brightness", 128);
     int vol    = prefs.getInt("volume", 50);
-    int tzIdx  = prefs.getInt("timezone", 12); // default: UTC+0 line in the list
+    int tzIdx  = prefs.getInt("timezone", 12);  // default: UTC+0 line in the list
     prefs.end();
 
-    if (brightnessSlider) lv_slider_set_value(brightnessSlider, bright, LV_ANIM_OFF);
-    if (volumeSlider) lv_slider_set_value(volumeSlider, vol, LV_ANIM_OFF);
-    if (timezoneDropdown) lv_dropdown_set_selected(timezoneDropdown, tzIdx);
+    if (brightnessSlider) {
+        lv_slider_set_value(brightnessSlider, bright, LV_ANIM_OFF);
+    }
+    if (volumeSlider) {
+        lv_slider_set_value(volumeSlider, vol, LV_ANIM_OFF);
+    }
+    if (timezoneDropdown) {
+        lv_dropdown_set_selected(timezoneDropdown, tzIdx);
+    }
 #endif
 }
 
