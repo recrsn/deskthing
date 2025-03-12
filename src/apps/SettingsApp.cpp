@@ -136,18 +136,18 @@ void SettingsApp::start(lv_obj_t *screen) {
     lv_obj_set_style_bg_color(screen, lv_color_hex(0x000000), 0);
     // Keep overall size ~180x180
     // Create a list to hold our settings items
-    lv_obj_t *settingsList = lv_list_create(screen);
+    settingsList = lv_list_create(screen);
     lv_obj_set_size(settingsList, 180, 180);
     lv_obj_align(settingsList, LV_ALIGN_CENTER, 0, 0);
 
     // Add each setting as a list item
-    lv_obj_t *btnBrightness = lv_list_add_btn(settingsList, NULL, "Brightness");
+    lv_obj_t *btnBrightness = lv_list_add_btn(settingsList, nullptr, "Brightness");
     lv_obj_add_event_cb(btnBrightness, onListItemClicked, LV_EVENT_CLICKED, this);
 
-    lv_obj_t *btnVolume = lv_list_add_btn(settingsList, NULL, "Volume");
+    lv_obj_t *btnVolume = lv_list_add_btn(settingsList, nullptr, "Volume");
     lv_obj_add_event_cb(btnVolume, onListItemClicked, LV_EVENT_CLICKED, this);
 
-    lv_obj_t *btnTimezone = lv_list_add_btn(settingsList, NULL, "Timezone");
+    lv_obj_t *btnTimezone = lv_list_add_btn(settingsList, nullptr, "Timezone");
     lv_obj_add_event_cb(btnTimezone, onListItemClicked, LV_EVENT_CLICKED, this);
 }
 
@@ -196,10 +196,10 @@ void SettingsApp::onVolumeChanged(lv_event_t *e) {
 #endif
 }
 
-static void SettingsApp::onListItemClicked(lv_event_t *e) {
+void SettingsApp::onListItemClicked(lv_event_t *e) {
     auto self = static_cast<SettingsApp *>(lv_event_get_user_data(e));
     lv_obj_t *btn = lv_event_get_target_obj(e);
-    const char *txt = lv_list_get_btn_text(btn);
+    const char *txt = lv_list_get_button_text(self->settingsList, btn);
 
     // Create a child "fragment" screen
     // Hide the main list while child is displayed, or move it off-screen

@@ -9,16 +9,20 @@
 
 class SettingsApp final : public App {
 public:
+    void createBrightnessFragment(lv_obj_t *oldScreen);
+    void createVolumeFragment(lv_obj_t *oldScreen);
+    void createTimezoneFragment(lv_obj_t *oldScreen);
     explicit SettingsApp(lvgl_m5_dial_t *dial);
     void start(lv_obj_t *parent) override;
     void stop() override;
     void update() override;
 
 private:
-    lv_group_t *group             = nullptr;
-    lv_obj_t *brightnessSlider    = nullptr;
-    lv_obj_t *volumeSlider        = nullptr;
-    lv_obj_t *timezoneDropdown    = nullptr;
+    lv_group_t *group          = nullptr;
+    lv_obj_t *brightnessSlider = nullptr;
+    lv_obj_t *volumeSlider     = nullptr;
+    lv_obj_t *timezoneDropdown = nullptr;
+    lv_obj_t *settingsList;
 
 #ifdef ESP_PLATFORM
     Preferences prefs;
@@ -26,6 +30,7 @@ private:
 
     static void onBrightnessChanged(lv_event_t *e);
     static void onVolumeChanged(lv_event_t *e);
+    static void onListItemClicked(lv_event_t *e);
     static void onTimezoneChanged(lv_event_t *e);
 
     void loadSettings();
@@ -33,4 +38,4 @@ private:
     void applySettings();
 };
 
-#endif // SETTINGSAPP_HPP
+#endif  // SETTINGSAPP_HPP
