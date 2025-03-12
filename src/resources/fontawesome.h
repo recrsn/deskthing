@@ -6,7 +6,7 @@
 #define FONTAWESOME_H
 
 LV_FONT_DECLARE(fontawesome)
-
+LV_FONT_DECLARE(fontawesome_64)
 // Characters:
 // 0xE06F: "" (U+E06F) STOPWATCH
 // 0xF001: "" (U+F001) MUSIC
@@ -30,5 +30,4 @@ LV_FONT_DECLARE(fontawesome)
 #define LV_SYMBOL_CLOCK            "\xEF\x80\x97"  // U+F017
 #define LV_SYMBOL_DROP             "\xEF\x81\x83"  // U+F043
 #define LV_SYMBOL_THERMOMETER_HALF "\xEF\x8B\x89"  // U+F2C9
-
 #endif  // FONTAWESOME_H

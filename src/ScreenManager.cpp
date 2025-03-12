@@ -76,9 +76,9 @@ void ScreenManager::launchApp(const std::string& appName) {
 }
 
 void ScreenManager::updateApp() const {
-    // if (currentApp) {
-    //     currentApp->update(TODO);
-    // }
+    if (currentApp) {
+        currentApp->update();
+    }
 }
 
 void ScreenManager::stopCurrentApp() {

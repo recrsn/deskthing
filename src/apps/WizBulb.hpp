@@ -37,6 +37,7 @@ public:
     void setBrightness(int brightness);
     void setColor(int red, int green, int blue);
     void setColorTemperature(int temperature);
+    void setPower(bool state);
     
     // Callback type definition
     using StateCallback = std::function<void(const WizBulbState&)>;
@@ -82,7 +83,7 @@ private:
     void checkTimeout();
     
     // Make socket non-blocking
-    void setNonBlocking(int sock);
+    static void setNonBlocking(int sock);
 };
 
 #endif // WIZBULB_HPP

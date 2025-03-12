@@ -8,13 +8,11 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <errno.h>
 #else
 #include <lwip/sockets.h>
 #endif
 
 #include <ArduinoJson.h>
-#include <cstring>
 
 WizBulb::WizBulb() {
     udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -50,6 +48,7 @@ void WizBulb::setNonBlocking(int sock) {
 #else
     // ESP32 lwip sockets are non-blocking by default when using Arduino framework
     // If using ESP-IDF directly, you might need to set non-blocking mode
+    lwip_fcntl(sock, F_SETFL, O_NONBLOCK);
 #endif
 }
 
@@ -86,11 +85,11 @@ void WizBulb::setTimeout(unsigned long ms) {
 
 void WizBulb::checkTimeout() {
     if (timeoutOccurred) {
-        return; // Already timed out, waiting for next request
+        return;  // Already timed out, waiting for next request
     }
-    
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastResponseTime).count();
+
+    const auto now     = std::chrono::steady_clock::now();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastResponseTime).count();
     
     if (elapsed > timeoutMs) {
         // Mark bulb as offline
@@ -174,10 +173,10 @@ void WizBulb::update() {
     }
     
     // Try to receive data
-    sockaddr_in from_addr;
+    sockaddr_in from_addr = {};
     socklen_t from_len = sizeof(from_addr);
     
-    int received = recvfrom(udp_socket, receiveBuffer.data(), receiveBuffer.size() - 1, 0,
+    ssize_t received = recvfrom(udp_socket, receiveBuffer.data(), receiveBuffer.size() - 1, 0,
                            reinterpret_cast<sockaddr*>(&from_addr), &from_len);
     
     if (received > 0) {
@@ -190,7 +189,7 @@ void WizBulb::update() {
     // No need to handle EAGAIN/EWOULDBLOCK as this is expected for non-blocking sockets
 }
 
-void WizBulb::setBrightness(int brightness) {
+void WizBulb::setBrightness(const int brightness) {
     if (udp_socket < 0) {
         return;
     }
@@ -204,7 +203,7 @@ void WizBulb::setBrightness(int brightness) {
     state.brightness = brightness;
 }
 
-void WizBulb::setColor(int red, int green, int blue) {
+void WizBulb::setColor(const int red, const int green, const int blue) {
     if (udp_socket < 0) {
         return;
     }
@@ -222,7 +221,7 @@ void WizBulb::setColor(int red, int green, int blue) {
     state.isRGBMode = true;
 }
 
-void WizBulb::setColorTemperature(int temperature) {
+void WizBulb::setColorTemperature(const int temperature) {
     if (udp_socket < 0) {
         return;
     }
@@ -237,10 +236,22 @@ void WizBulb::setColorTemperature(int temperature) {
     state.isRGBMode   = false;
 }
 
-void WizBulb::sendCommand(const char* payload, int len) {
+void WizBulb::setPower(bool state) {
     if (udp_socket < 0) {
         return;
     }
 
+    char payload[100];
+    const int len = snprintf(payload, sizeof(payload), 
+                            R"({"method":"setPilot","params":{"state":%s}})", 
+                            state ? "true" : "false");
+
+    sendCommand(payload, len);
+
+    // Update local state
+    this->state.isOn = state;
+}
+
+void WizBulb::sendCommand(const char* payload, int len) {
     sendto(udp_socket, payload, len, 0, reinterpret_cast<sockaddr*>(&wiz_addr), sizeof(wiz_addr));
 }

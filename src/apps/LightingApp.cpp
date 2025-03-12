@@ -231,8 +231,7 @@ void LightingApp::onBulbStateUpdate(const WizBulbState& state) {
         
         if (is_rgb_mode) {
             // Convert RGB to HSV and update color slider
-            uint16_t h, s, v;
-            lv_color_rgb_to_hsv(state.red, state.green, state.blue, &h, &s, &v);
+            auto [h, s, v] = lv_color_rgb_to_hsv(state.red, state.green, state.blue);
             current_color = h;
             lv_arc_set_value(arcSlider, current_color);
         } else {

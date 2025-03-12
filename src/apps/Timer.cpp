@@ -22,11 +22,7 @@
 #define TIMER_MAX (99 * 3600 + 59 * 60 + 59)
 
 void Timer::start(lv_obj_t *parent) {
-    // lv_obj_add_event_cb(
-    //     scr, [](lv_event_t *evt) { printf("Screen Event %d\n", lv_event_get_code(evt)); }, LV_EVENT_ALL, nullptr);
     lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
-
-    // Create a label for the timer
 
     hoursLabel = lv_label_create(parent);
     lv_obj_add_flag(hoursLabel, LV_OBJ_FLAG_CLICKABLE);
