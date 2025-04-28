@@ -1,10 +1,9 @@
-#ifndef __LVGL_PORT_M5STACK_HPP__
-#define __LVGL_PORT_M5STACK_HPP__
+#pragma once
 
 #if defined(ARDUINO)
 #endif
 #include <M5GFX.h>
-#include "lvgl.h"
+#include <lvgl.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,5 +21,3 @@ void lvgl_port_unlock(void);
 #ifdef __cplusplus
 }
 #endif
-
-#endif  // __LVGL_PORT_M5STACK_HPP__

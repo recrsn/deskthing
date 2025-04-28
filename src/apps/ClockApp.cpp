@@ -16,11 +16,13 @@
 
 #include <resources/fontawesome.h>
 
-#include <ctime>
-
 #include "lvgl_port_m5stack.hpp"
+#include "platform/log.h"
+
+static const char *LOG_TAG = "ClockApp";
 
 ClockApp::ClockApp(lvgl_m5_dial_t *dial) : App(dial) {
+    LOG_I(LOG_TAG, "Initializing ClockApp");
     // Set up the callback
     wizBulb.setStateCallback([this](const WizBulbState &state) { this->onBulbStateUpdate(state); });
 }
@@ -30,10 +32,13 @@ void ClockApp::setBrightnessCallback(void *data) {
     const auto app        = static_cast<ClockApp *>(lv_obj_get_user_data(arc));
     const auto brightness = lv_arc_get_value(arc);
 
+    LOG_D(LOG_TAG, "Brightness callback with value: %d", brightness);
     app->wizBulb.setBrightness(brightness);
 }
 
 void ClockApp::start(lv_obj_t *screen) {
+    LOG_I(LOG_TAG, "Starting ClockApp");
+
     lv_obj_set_style_bg_color(screen, lv_color_hex(0x000000), 0);
     lv_style_init(&this->overlayStyle);
     lv_style_set_bg_color(&this->overlayStyle, lv_color_hex(0x000000));
@@ -171,7 +176,7 @@ void ClockApp::start(lv_obj_t *screen) {
     lv_timer_ready(clockTimer);
 
     // Create timer to periodically request bulb state
-    stateRequestTimer = lv_timer_create(requestBulbState, 10000, this);  // Request every 10 seconds
+    stateRequestTimer = lv_timer_create(requestBulbState, 10000, this);
 
     // Request initial state
     wizBulb.requestState();
@@ -205,7 +210,7 @@ void ClockApp::updateTime(lv_timer_t *timer) {
 void ClockApp::update() {
     if (lv_obj_has_flag(this->overlay, LV_OBJ_FLAG_HIDDEN)) {
         lv_indev_data_t data;
-        auto indev_get_read_cb = lv_indev_get_read_cb(this->dial->encoder);
+        const auto indev_get_read_cb = lv_indev_get_read_cb(this->dial->encoder);
         indev_get_read_cb(this->dial->encoder, &data);
         if (data.enc_diff) {
             lv_obj_clear_flag(this->overlay, LV_OBJ_FLAG_HIDDEN);
@@ -224,6 +229,9 @@ void ClockApp::onBulbStateUpdate(const WizBulbState &state) {
     bulbOnline  = state.isOnline;
     bulbPowered = state.isOn;
 
+    LOG_D(LOG_TAG, "Bulb state update - Online: %s, Powered: %s, Brightness: %d", bulbOnline ? "yes" : "no",
+          bulbPowered ? "yes" : "no", state.brightness);
+
     // Update UI based on bulb state
     updateBulbStatusUI();
 
@@ -236,16 +244,19 @@ void ClockApp::onBulbStateUpdate(const WizBulbState &state) {
 
 void ClockApp::updateBulbStatusUI() const {
     if (!bulbOnline) {
+        LOG_D(LOG_TAG, "Updating UI for offline bulb");
         lv_obj_set_style_text_color(bulbIcon, lv_color_hex(0xcc0000), 0);
         lv_obj_clear_flag(offlineOverlay, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(powerOffOverlay, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(brightnessOverlay, LV_OBJ_FLAG_HIDDEN);
     } else if (!bulbPowered) {
+        LOG_D(LOG_TAG, "Updating UI for powered-off bulb");
         lv_obj_set_style_text_color(bulbIcon, lv_color_hex(0x888888), 0);
         lv_obj_clear_flag(powerOffOverlay, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(offlineOverlay, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(brightnessOverlay, LV_OBJ_FLAG_HIDDEN);
     } else {
+        LOG_D(LOG_TAG, "Updating UI for powered-on bulb");
         lv_obj_set_style_text_color(bulbIcon, lv_color_hex(0xCCCC00), 0);
         lv_obj_clear_flag(brightnessOverlay, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(powerOffOverlay, LV_OBJ_FLAG_HIDDEN);
@@ -259,6 +270,8 @@ void ClockApp::requestBulbState(lv_timer_t *timer) {
 }
 
 void ClockApp::stop() {
+    LOG_I(LOG_TAG, "Stopping ClockApp");
+
     if (overlayTimer) {
         lv_timer_del(overlayTimer);
     }
@@ -291,4 +304,6 @@ void ClockApp::stop() {
         lv_obj_del(offlineIcon);
         offlineIcon = nullptr;
     }
+
+    LOG_I(LOG_TAG, "ClockApp stopped");
 }

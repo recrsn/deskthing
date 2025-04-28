@@ -4,9 +4,9 @@
 #include <M5Dial.h>
 #endif
 
-#if defined(ARDUINO) && defined(ESP_PLATFORM)
+#if defined(ESP_PLATFORM)
 static SemaphoreHandle_t xGuiSemaphore;
-#elif !defined(ARDUINO) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
+#elif !defined(ESP_PLATFORM) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
 static SDL_mutex *xGuiMutex;
 #endif
 
@@ -18,7 +18,7 @@ static SDL_mutex *xGuiMutex;
 extern "C" {
 #endif
 
-#if defined(ARDUINO) && defined(ESP_PLATFORM)
+#if defined(ESP_PLATFORM) && defined(ESP_PLATFORM)
 static void lvgl_tick_timer(void *arg) {
     (void)arg;
     lv_tick_inc(10);
@@ -33,7 +33,7 @@ static void lvgl_rtos_task(void *pvParameter) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
-#elif !defined(ARDUINO) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
+#elif !defined(ESP_PLATFORM) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
 static uint32_t lvgl_tick_timer(uint32_t interval, void *param) {
     (void)interval;
     (void)param;
@@ -120,7 +120,7 @@ lvgl_m5_dial_t *lvgl_port_init(M5GFX &gfx) {
     lv_display_set_driver_data(disp, &gfx);
     lv_display_set_flush_cb(disp, lvgl_flush_cb);
 
-#if defined(ARDUINO) && defined(ESP_PLATFORM)
+#if defined(ESP_PLATFORM)
 #if defined(BOARD_HAS_PSRAM)
     static uint8_t *buf1 = (uint8_t *)heap_caps_malloc(gfx.width() * LV_BUFFER_LINE, MALLOC_CAP_SPIRAM);
     static uint8_t *buf2 = (uint8_t *)heap_caps_malloc(gfx.width() * LV_BUFFER_LINE, MALLOC_CAP_SPIRAM);
@@ -158,14 +158,14 @@ lvgl_m5_dial_t *lvgl_port_init(M5GFX &gfx) {
     lv_indev_set_read_cb(indev_encoder, lvgl_read_encoder_cb);
     lv_indev_set_display(indev_encoder, disp);
 
-#if defined(ARDUINO) && defined(ESP_PLATFORM)
+#if defined(ESP_PLATFORM)
     xGuiSemaphore                                     = xSemaphoreCreateMutex();
     const esp_timer_create_args_t periodic_timer_args = {.callback = &lvgl_tick_timer, .name = "lvgl_tick_timer"};
     esp_timer_handle_t periodic_timer;
     ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 10 * 1000));
     xTaskCreate(lvgl_rtos_task, "lvgl_rtos_task", 8 * 1024, NULL, 1, NULL);
-#elif !defined(ARDUINO) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
+#elif !defined(ESP_PLATFORM) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
     xGuiMutex = SDL_CreateMutex();
     SDL_AddTimer(10, lvgl_tick_timer, nullptr);
     SDL_CreateThread(lvgl_sdl_thread, "lvgl_sdl_thread", nullptr);
@@ -175,17 +175,17 @@ lvgl_m5_dial_t *lvgl_port_init(M5GFX &gfx) {
 }
 
 bool lvgl_port_lock(void) {
-#if defined(ARDUINO) && defined(ESP_PLATFORM)
+#if defined(ESP_PLATFORM)
     return xSemaphoreTake(xGuiSemaphore, portMAX_DELAY) == pdTRUE ? true : false;
-#elif !defined(ARDUINO) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
+#else
     return SDL_LockMutex(xGuiMutex) == 0 ? true : false;
 #endif
 }
 
 void lvgl_port_unlock(void) {
-#if defined(ARDUINO) && defined(ESP_PLATFORM)
+#if defined(ESP_PLATFORM)
     xSemaphoreGive(xGuiSemaphore);
-#elif !defined(ARDUINO) && (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
+#elif (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>))
     SDL_UnlockMutex(xGuiMutex);
 #endif
 }

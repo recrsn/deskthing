@@ -4,71 +4,46 @@
 
 #include "WizBulb.hpp"
 
-#ifndef ESP_PLATFORM
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#else
-#include <lwip/sockets.h>
-#endif
-
 #include <ArduinoJson.h>
 
-WizBulb::WizBulb() {
-    udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
-    
-    if (udp_socket >= 0) {
-        setNonBlocking(udp_socket);
-    }
+#include "platform/log.h"
 
-    wiz_addr.sin_family = AF_INET;
-    wiz_addr.sin_port   = htons(38899);  // WiZ light UDP port
+static const char* LOG_TAG = "WizBulb";
+
+WizBulb::WizBulb() {
+    LOG_I(LOG_TAG, "Initializing WizBulb");
+    udp.begin(0);
 
 #ifdef BULB_IP
-    inet_aton(BULB_IP, &wiz_addr.sin_addr);
+    // Parse IP address string
+    int ip[4];
+    sscanf(BULB_IP, "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
+    bulbIP = IPAddress(ip[0], ip[1], ip[2], ip[3]);
+    LOG_I(LOG_TAG, "Bulb IP set to %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+#else
+    LOG_W(LOG_TAG, "No bulb IP configured");
 #endif
 
     // Initialize receive buffer
     receiveBuffer.resize(1024);
-    
-    // Initialize timeout tracking
-    lastResponseTime = std::chrono::steady_clock::now();
+    lastRequestTime = std::chrono::steady_clock::now();
+    timeoutOccurred  = false;
 }
 
 WizBulb::~WizBulb() {
-    if (udp_socket >= 0) {
-        close(udp_socket);
-    }
-}
-
-void WizBulb::setNonBlocking(int sock) {
-#ifndef ESP_PLATFORM
-    int flags = fcntl(sock, F_GETFL, 0);
-    fcntl(sock, F_SETFL, flags | O_NONBLOCK);
-#else
-    // ESP32 lwip sockets are non-blocking by default when using Arduino framework
-    // If using ESP-IDF directly, you might need to set non-blocking mode
-    lwip_fcntl(sock, F_SETFL, O_NONBLOCK);
-#endif
+    LOG_I(LOG_TAG, "Shutting down WizBulb");
+    udp.stop();
 }
 
 void WizBulb::setStateCallback(StateCallback callback) {
+    LOG_I(LOG_TAG, "Setting state callback");
     stateCallback = std::move(callback);
 }
 
 void WizBulb::requestState() {
-    if (udp_socket < 0) {
-        return;
-    }
-
-    char payload[50];
-    const int len = snprintf(payload, sizeof(payload), R"({"method":"getPilot"})");
-
-    sendCommand(payload, len);
-    
-    // Update last response time
-    lastResponseTime = std::chrono::steady_clock::now();
-    timeoutOccurred = false;
+    LOG_I(LOG_TAG, "Requesting bulb state");
+    constexpr char payload[] = R"({"method":"getPilot"})";
+    sendCommand(payload, strlen(payload));
 }
 
 bool WizBulb::isOnline() const {
@@ -80,22 +55,28 @@ const WizBulbState& WizBulb::getState() const {
 }
 
 void WizBulb::setTimeout(unsigned long ms) {
+    LOG_I(LOG_TAG, "Setting timeout to %lu ms", ms);
     timeoutMs = ms;
 }
 
 void WizBulb::checkTimeout() {
-    if (timeoutOccurred) {
-        return;  // Already timed out, waiting for next request
+    if (!pingInProgress) {
+        return;
     }
 
     const auto now     = std::chrono::steady_clock::now();
-    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastResponseTime).count();
-    
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastRequestTime).count();
+
+    // Only change state to offline if we weren't already timed out
+    // This prevents flipping between states when multiple checks happen during timeout
     if (elapsed > timeoutMs) {
         // Mark bulb as offline
-        state.isOnline = false;
+        state.isOnline  = false;
         timeoutOccurred = true;
-        
+        pingInProgress  = false;
+
+        LOG_W(LOG_TAG, "Connection timed out after %lldms", elapsed);
+
         // Notify via callback
         if (stateCallback) {
             stateCallback(state);
@@ -105,18 +86,20 @@ void WizBulb::checkTimeout() {
 
 void WizBulb::processStateResponse(const std::string& response) {
     // Mark the bulb as online since we received a response
-    state.isOnline = true;
+    state.isOnline  = true;
     timeoutOccurred = false;
-    
+    pingInProgress  = false;
+
     // Update last response time
-    lastResponseTime = std::chrono::steady_clock::now();
+    lastRequestTime = std::chrono::steady_clock::now();
 
     // Parse the JSON response using ArduinoJson
-    JsonDocument doc;  // Adjust size as needed
+    JsonDocument doc;
 
     DeserializationError error = deserializeJson(doc, response);
     if (error) {
         // JSON parsing failed
+        LOG_E(LOG_TAG, "JSON parsing failed: %s", error.c_str());
         if (stateCallback) {
             stateCallback(state);
         }
@@ -126,20 +109,25 @@ void WizBulb::processStateResponse(const std::string& response) {
     // Get the result object
     const JsonObject result = doc["result"];
     if (result.isNull()) {
+        LOG_W(LOG_TAG, "No result object in response");
         if (stateCallback) {
             stateCallback(state);
         }
         return;
     }
 
+    LOG_I(LOG_TAG, "Processing state response");
+
     // Get the state value
     if (result["state"].is<bool>()) {
         state.isOn = result["state"].as<bool>();
+        LOG_D(LOG_TAG, "Bulb power state: %s", state.isOn ? "ON" : "OFF");
     }
 
     // Get the dimming (brightness) value
     if (result["dimming"].is<int>()) {
         state.brightness = result["dimming"].as<int>();
+        LOG_D(LOG_TAG, "Brightness: %d", state.brightness);
     }
 
     // Check for RGB color values
@@ -149,12 +137,14 @@ void WizBulb::processStateResponse(const std::string& response) {
         state.green     = result["g"].as<int>();
         state.blue      = result["b"].as<int>();
         state.isRGBMode = true;
+        LOG_D(LOG_TAG, "RGB mode: R=%d, G=%d, B=%d", state.red, state.green, state.blue);
     }
 
     // Check for color temperature
     if (result["temp"].is<int>()) {
         state.temperature = result["temp"].as<int>();
         state.isRGBMode   = false;
+        LOG_D(LOG_TAG, "Temperature mode: %d K", state.temperature);
     }
 
     // Notify via callback
@@ -166,36 +156,29 @@ void WizBulb::processStateResponse(const std::string& response) {
 void WizBulb::update() {
     // Check for timeout
     checkTimeout();
-    
+
     // Check for incoming data
-    if (udp_socket < 0) {
-        return;
+    int packetSize = udp.parsePacket();
+    if (packetSize) {
+        // Read the packet into our buffer
+        int len = udp.read(receiveBuffer.data(), receiveBuffer.size() - 1);
+        if (len > 0) {
+            // Null-terminate the received data
+            receiveBuffer[len] = '\0';
+
+            LOG_D(LOG_TAG, "Received %d bytes: %s", len, receiveBuffer.data());
+
+            // Process the response
+            processStateResponse(std::string(receiveBuffer.data(), len));
+        }
     }
-    
-    // Try to receive data
-    sockaddr_in from_addr = {};
-    socklen_t from_len = sizeof(from_addr);
-    
-    ssize_t received = recvfrom(udp_socket, receiveBuffer.data(), receiveBuffer.size() - 1, 0,
-                           reinterpret_cast<sockaddr*>(&from_addr), &from_len);
-    
-    if (received > 0) {
-        // Null-terminate the received data
-        receiveBuffer[received] = '\0';
-        
-        // Process the response
-        processStateResponse(std::string(receiveBuffer.data(), received));
-    }
-    // No need to handle EAGAIN/EWOULDBLOCK as this is expected for non-blocking sockets
 }
 
 void WizBulb::setBrightness(const int brightness) {
-    if (udp_socket < 0) {
-        return;
-    }
+    LOG_I(LOG_TAG, "Setting brightness to %d", brightness);
 
     char payload[100];
-    int len = snprintf(payload, sizeof(payload), R"({"method":"setPilot","params":{"dimming":%d}})", brightness);
+    const int len = snprintf(payload, sizeof(payload), R"({"method":"setPilot","params":{"dimming":%d}})", brightness);
 
     sendCommand(payload, len);
 
@@ -204,9 +187,7 @@ void WizBulb::setBrightness(const int brightness) {
 }
 
 void WizBulb::setColor(const int red, const int green, const int blue) {
-    if (udp_socket < 0) {
-        return;
-    }
+    LOG_I(LOG_TAG, "Setting color to RGB(%d, %d, %d)", red, green, blue);
 
     char payload[128];
     int len = snprintf(payload, sizeof(payload), R"({"method":"setPilot","params":{"r":%d,"g":%d,"b":%d}})", red, green,
@@ -222,9 +203,7 @@ void WizBulb::setColor(const int red, const int green, const int blue) {
 }
 
 void WizBulb::setColorTemperature(const int temperature) {
-    if (udp_socket < 0) {
-        return;
-    }
+    LOG_I(LOG_TAG, "Setting color temperature to %d K", temperature);
 
     char payload[100];
     const int len = snprintf(payload, sizeof(payload), R"({"method":"setPilot","params":{"temp":%d}})", temperature);
@@ -237,14 +216,11 @@ void WizBulb::setColorTemperature(const int temperature) {
 }
 
 void WizBulb::setPower(bool state) {
-    if (udp_socket < 0) {
-        return;
-    }
+    LOG_I(LOG_TAG, "Setting power to %s", state ? "ON" : "OFF");
 
     char payload[100];
-    const int len = snprintf(payload, sizeof(payload), 
-                            R"({"method":"setPilot","params":{"state":%s}})", 
-                            state ? "true" : "false");
+    const int len =
+        snprintf(payload, sizeof(payload), R"({"method":"setPilot","params":{"state":%s}})", state ? "true" : "false");
 
     sendCommand(payload, len);
 
@@ -253,5 +229,16 @@ void WizBulb::setPower(bool state) {
 }
 
 void WizBulb::sendCommand(const char* payload, int len) {
-    sendto(udp_socket, payload, len, 0, reinterpret_cast<sockaddr*>(&wiz_addr), sizeof(wiz_addr));
+#ifdef BULB_IP
+    LOG_I(LOG_TAG, "Sending command: %s", payload);
+
+    udp.beginPacket(bulbIP, bulbPort);
+    udp.write(reinterpret_cast<const uint8_t*>(payload), len);
+    udp.endPacket();
+
+    pingInProgress   = true;
+    lastRequestTime = std::chrono::steady_clock::now();
+#else
+    LOG_W(LOG_TAG, "Cannot send command: No bulb IP configured");
+#endif
 }

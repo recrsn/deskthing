@@ -469,11 +469,11 @@
 
 #define LV_USE_ARC        1
 
-#define LV_USE_BAR        0
+#define LV_USE_BAR        1
 
 #define LV_USE_BUTTON        1
 
-#define LV_USE_BUTTONMATRIX  1
+#define LV_USE_BUTTONMATRIX  0
 
 #define LV_USE_CALENDAR   0
 #if LV_USE_CALENDAR
@@ -495,7 +495,7 @@
 
 #define LV_USE_CHECKBOX   0
 
-#define LV_USE_DROPDOWN   0   /*Requires: lv_label*/
+#define LV_USE_DROPDOWN   1   /*Requires: lv_label*/
 
 #define LV_USE_IMAGE      1   /*Requires: lv_label*/
 
@@ -524,7 +524,7 @@
 
 #define LV_USE_SCALE      0
 
-#define LV_USE_SLIDER     0   /*Requires: lv_bar*/
+#define LV_USE_SLIDER     1   /*Requires: lv_bar*/
 
 #define LV_USE_SPAN       0
 #if LV_USE_SPAN
@@ -783,7 +783,7 @@
 #define LV_USE_GRIDNAV 0
 
 /*1: Enable lv_obj fragment*/
-#define LV_USE_FRAGMENT 0
+#define LV_USE_FRAGMENT 1
 
 /*1: Support using images as font in label or span widgets */
 #define LV_USE_IMGFONT 0

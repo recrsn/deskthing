@@ -1,27 +1,35 @@
 #include "ScreenManager.hpp"
-#include "resources/fontawesome.h"
+
+#include "../platform/log.h"
+#include "../resources/fontawesome.h"
+
+static const char* LOG_TAG = "ScreenManager";
 
 void ScreenManager::backButtonEventHandler(lv_event_t* e) {
     auto* manager = static_cast<ScreenManager*>(lv_event_get_user_data(e));
     if (manager) {
+        LOG_D(LOG_TAG, "Back button pressed, returning to launcher");
         manager->showLauncher();
     }
 }
 
 void ScreenManager::launcherEventHandler(lv_event_t* e) {
-    auto* btn           = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    auto appName = static_cast<const char*>(lv_obj_get_user_data(btn));
-    auto* manager       = static_cast<ScreenManager*>(lv_event_get_user_data(e));
+    auto* btn     = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    auto appName  = static_cast<const char*>(lv_obj_get_user_data(btn));
+    auto* manager = static_cast<ScreenManager*>(lv_event_get_user_data(e));
     if (manager && appName) {
+        LOG_I(LOG_TAG, "Launcher button clicked for app: %s", appName);
         manager->launchApp(appName);
     }
 }
 
 ScreenManager::ScreenManager(lvgl_m5_dial_t* dial) : dial(dial) {
+    LOG_I(LOG_TAG, "Initializing ScreenManager");
     screen = lv_obj_create(nullptr);
 }
 
 void ScreenManager::registerApp(const std::string& name, const char* icon, std::function<std::unique_ptr<App>(lvgl_m5_dial_t*)> factory) {
+    LOG_I(LOG_TAG, "Registering app: %s", name.c_str());
     appRegistry[name] = std::move(factory);
     appIcons[name] = icon;
 }
@@ -41,6 +49,7 @@ void ScreenManager::addAppButton(lv_obj_t* appList, const std::string& appName) 
 }
 
 void ScreenManager::showLauncher() {
+    LOG_I(LOG_TAG, "Showing launcher");
     stopCurrentApp();
     auto newScreen = lv_obj_create(nullptr);
 
@@ -51,6 +60,7 @@ void ScreenManager::showLauncher() {
     lv_obj_center(list);
     lv_obj_set_style_bg_color(newScreen, lv_color_hex(0x0), 0);
 
+    LOG_D(LOG_TAG, "Adding app buttons to launcher");
     for (const auto& [name, _] : appRegistry) {
         addAppButton(list, name);
     }
@@ -62,9 +72,11 @@ void ScreenManager::showLauncher() {
 
 void ScreenManager::launchApp(const std::string& appName) {
     if (appRegistry.find(appName) == appRegistry.end()) {
+        LOG_E(LOG_TAG, "Failed to launch app: %s (not registered)", appName.c_str());
         return;
     }
 
+    LOG_I(LOG_TAG, "Launching app: %s", appName.c_str());
     const auto newScreen = lv_obj_create(nullptr);
 
     currentApp = appRegistry[appName](dial);
@@ -73,6 +85,7 @@ void ScreenManager::launchApp(const std::string& appName) {
     lv_scr_load(newScreen);
     lv_obj_del(screen);
     screen = newScreen;
+    LOG_D(LOG_TAG, "App %s launched successfully", appName.c_str());
 }
 
 void ScreenManager::updateApp() const {
@@ -83,6 +96,7 @@ void ScreenManager::updateApp() const {
 
 void ScreenManager::stopCurrentApp() {
     if (currentApp) {
+        LOG_I(LOG_TAG, "Stopping current app");
         currentApp->stop();
         currentApp.reset();
     }

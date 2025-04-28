@@ -8,7 +8,7 @@
 #include <map>
 #include <memory>
 
-#include "apps/App.hpp"
+#include "App.hpp"
 
 class ScreenManager {
     lv_obj_t* screen;

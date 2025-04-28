@@ -1,32 +1,27 @@
-//
-// Created by Amitosh Swain Mahapatra on 2024.
-//
-
 #ifndef WIZBULB_HPP
 #define WIZBULB_HPP
 
-#ifdef ESP_PLATFORM
-#include <lwip/sockets.h>
+#ifndef ESP_PLATFORM
+#include "../platform/unix/Network.hpp"
 #else
-#include <netinet/in.h>
-#include <fcntl.h>
+#include <WiFi.h>
 #endif
 
-#include <functional>
 #include <chrono>
+#include <functional>
 #include <string>
 #include <vector>
 
 // Define a struct for the bulb state
 struct WizBulbState {
-    bool isOnline = false;
-    bool isOn = false;
-    int brightness = 50;
+    bool isOnline   = false;
+    bool isOn       = false;
+    int brightness  = 50;
     int temperature = 2700;
-    int red = 255;
-    int green = 255;
-    int blue = 255;
-    bool isRGBMode = false;
+    int red         = 255;
+    int green       = 255;
+    int blue        = 255;
+    bool isRGBMode  = false;
 };
 
 class WizBulb {
@@ -38,52 +33,51 @@ public:
     void setColor(int red, int green, int blue);
     void setColorTemperature(int temperature);
     void setPower(bool state);
-    
+
     // Callback type definition
     using StateCallback = std::function<void(const WizBulbState&)>;
-    
+
     // Set callback for state updates
     void setStateCallback(StateCallback callback);
-    
+
     // Request current state from the bulb
     void requestState();
-    
+
     // Check if bulb is online
     bool isOnline() const;
-    
+
     // Get current state
     const WizBulbState& getState() const;
-    
+
     // Update function to be called in the main loop
     void update();
-    
+
     // Set timeout duration in milliseconds
     void setTimeout(unsigned long timeoutMs);
 
 private:
-    int udp_socket = -1;
-    sockaddr_in wiz_addr = {};
+    WiFiUDP udp;
+    IPAddress bulbIP;
+    uint16_t bulbPort = 38899;  // WiZ light UDP port
     WizBulbState state;
     StateCallback stateCallback = nullptr;
-    
+
     // Buffer for receiving data
     std::vector<char> receiveBuffer;
-    
+
     // Timeout handling
-    std::chrono::steady_clock::time_point lastResponseTime;
-    unsigned long timeoutMs = 60000; // Default 60 seconds
-    bool timeoutOccurred = false;
-    
+    std::chrono::steady_clock::time_point lastRequestTime;
+    unsigned long timeoutMs = 2000;
+    bool timeoutOccurred    = false;
+    bool pingInProgress     = false;
+
     void sendCommand(const char* payload, int len);
-    
-    // Process received state data
+
+    // Process received state response
     void processStateResponse(const std::string& response);
-    
+
     // Check for timeout
     void checkTimeout();
-    
-    // Make socket non-blocking
-    static void setNonBlocking(int sock);
 };
 
-#endif // WIZBULB_HPP
+#endif  // WIZBULB_HPP
